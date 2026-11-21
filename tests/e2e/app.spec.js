@@ -308,6 +308,130 @@ test.describe('color-blind preview', () => {
   });
 });
 
+test.describe('a CSS color name or hex in the name field', () => {
+  const hint = (page) => page.locator('#seedHint');
+  const snippetFor = (E_, seed) => JSON.parse(E_.makeSnippet(E_.buildTheme(seed, 'auto'), { adapt: true, explorer: true, braces: true }));
+
+  test('uses the color\'s hue, says so, and shows the color it was given', async ({ page }) => {
+    await page.goto('/#tomato--braces');
+    await expect(page.locator('#seed')).toHaveValue('tomato');
+    await expect(hint(page)).toHaveText('Using the hue of tomato');
+    await expect(hint(page).locator('i')).toHaveCSS('background-color', 'rgb(255, 99, 71)');
+    expect(JSON.parse(await snippet(page))).toEqual(snippetFor(E, 'tomato'));
+    expect(E.buildTheme('tomato', 'dark').hue).toBeCloseTo(E.hexToOklch('#ff6347').H, 6);
+  });
+
+  test('the same color gives the same snippet however it is typed', async ({ page }) => {
+    await opt(page, 'optBraces').check();
+    const seen = new Set();
+    for (const typed of ['tomato', 'Tomato', ' TOMATO ', '#ff6347', '#FF6347', '#ff6347cc', 'rgb(255, 99, 71)', 'hsl(9 100% 64%)']) {
+      await page.locator('#seed').fill(typed);
+      await expect(hint(page)).toContainText('Using the hue of');
+      seen.add(await snippet(page));
+    }
+    expect(seen.size).toBe(1);
+    await page.locator('#seed').fill('teal');
+    expect(seen.has(await snippet(page))).toBe(false);
+  });
+
+  test('a hex color works and is kept in the link', async ({ page }) => {
+    await page.locator('#seed').fill('#ff6600');
+    await expect(hint(page)).toHaveText('Using the hue of #ff6600');
+    const h = await hash(page);
+    expect(h).toBe('#' + E.UrlState.encode(Object.assign({}, E.UrlState.DEFAULTS, { seed: '#ff6600' })));
+    await page.goto('about:blank');
+    await page.goto('/' + h);
+    await expect(page.locator('#seed')).toHaveValue('#ff6600');
+    await expect(hint(page)).toHaveText('Using the hue of #ff6600');
+  });
+
+  test('spaced and hyphenated names, Tailwind colors and color functions get the same hint', async ({ page }) => {
+    for (const typed of ['dark red', 'Dark-Red', 'sky-500', 'Sky', 'amber', 'emerald 600', 'rgb(255 99 71 / 50%)', 'hsl(200 80% 40%)', 'hwb(120 10% 30%)', 'oklch(70% 0.15 300)', '#ff6347cc', '#f63a']) {
+      await page.locator('#seed').fill(typed);
+      await expect(hint(page), typed).toHaveText('Using the hue of ' + typed.trim());
+      await expect(hint(page).locator('i'), typed).toHaveCount(1);
+    }
+    // the chip shows the color that was typed
+    await page.locator('#seed').fill('dark red');
+    await expect(hint(page).locator('i')).toHaveCSS('background-color', 'rgb(139, 0, 0)');
+    await page.locator('#seed').fill('rgb(200 60 30)');
+    await expect(hint(page).locator('i')).toHaveCSS('background-color', 'rgb(200, 60, 30)');
+    // a nearly black color has no hue to use, so it says so instead of showing a chip
+    await page.locator('#seed').fill('rgb(10 20 30)');
+    await expect(hint(page)).toHaveText('rgb(10 20 30) has no clear hue, so it is treated like any other string.');
+  });
+
+  test('the same color typed as a name, a function, a Tailwind shade or hex gives the same snippet', async ({ page }) => {
+    await opt(page, 'optBraces').check();
+    const same = async (typed) => { await page.locator('#seed').fill(typed); await expect(hint(page)).toContainText('Using the hue of'); return snippet(page); };
+    const a = await same('dark red');
+    for (const typed of ['darkred', 'DARK-RED', 'dark_red', '#8b0000', 'rgb(139 0 0)']) expect(await same(typed), typed).toBe(a);
+    const sky = await same('sky');
+    for (const typed of ['sky-500', 'Sky 500', E.TAILWIND_COLORS.sky[5]]) expect(await same(typed), typed).toBe(sky);
+    expect(sky).not.toBe(a);
+  });
+
+  test('the engine reads color functions the way this browser does (rgb, hsl, hwb, oklch, hex with alpha)', async ({ page }) => {
+    const samples = ['rgb(255, 99, 71)', 'rgb(10 200 30 / 50%)', 'rgb(100% 0% 50%)', 'rgba(12, 34, 56, .5)', 'hsl(200 80% 40%)', 'hsl(350, 60%, 70%)', 'hsl(0.5turn 50% 50%)', 'hsl(200grad 50% 50%)',
+      'hsla(90, 100%, 25%, 0.4)', 'hwb(120 10% 30%)', 'hwb(300 0% 0%)', 'hwb(0 60% 60%)', 'oklch(70% 0.1 300)', 'oklch(0.5 0.1 150)', 'oklch(80% 0.05 30)', 'oklch(60% 0.12 240deg)', '#ff6347cc', '#f63a'];
+    const seen = await page.evaluate((list) => list.map((c) => {
+      const ctx = document.createElement('canvas').getContext('2d', { willReadFrequently: true });
+      ctx.fillStyle = '#010203'; ctx.fillStyle = c; // an invalid color leaves the sentinel in place
+      const rejected = ctx.fillStyle === '#010203';
+      ctx.clearRect(0, 0, 1, 1); ctx.fillRect(0, 0, 1, 1);
+      const d = ctx.getImageData(0, 0, 1, 1).data;
+      return { rejected, rgb: [d[0], d[1], d[2]] };
+    }), samples);
+    samples.forEach((c, i) => {
+      expect(seen[i].rejected, c).toBe(false);
+      const mine = E.parseColor(c).hex;
+      const got = [1, 3, 5].map((k) => parseInt(mine.slice(k, k + 2), 16));
+      got.forEach((v, k) => expect(Math.abs(v - seen[i].rgb[k]), `${c} channel ${k}: ours ${mine}, browser ${seen[i].rgb}`).toBeLessThanOrEqual(1));
+    });
+  });
+
+  test('a gray says it has no hue and is treated like any other string', async ({ page }) => {
+    await page.locator('#seed').fill('gray');
+    await expect(hint(page)).toHaveText('gray has no clear hue, so it is treated like any other string.');
+    await expect(hint(page).locator('i')).toHaveCount(0);
+    await opt(page, 'optBraces').check();
+    expect(JSON.parse(await snippet(page))).toEqual(snippetFor(E, 'gray'));
+    expect(E.buildTheme('gray', 'dark').hue).toBe((E.hash32('gray') / 4294967296) * 360);
+  });
+
+  test('ordinary names get no hint, and the hint appearing moves nothing', async ({ page }) => {
+    await expect(hint(page)).toHaveText('');
+    const before = await Promise.all(['.snippetpanel', '#shuffle', '.opts'].map((sel) => page.locator(sel).first().boundingBox()));
+    const heightBefore = (await page.locator('#hintWrap').boundingBox()).height; // the row keeps its height with or without a note
+    await page.locator('#seed').fill('tomato');
+    await expect(hint(page)).toContainText('Using the hue of');
+    const after = await Promise.all(['.snippetpanel', '#shuffle', '.opts'].map((sel) => page.locator(sel).first().boundingBox()));
+    expect(after).toEqual(before);
+    expect((await page.locator('#hintWrap').boundingBox()).height).toBe(heightBefore);
+    await page.locator('#seed').fill('tomatoes');
+    await expect(hint(page)).toHaveText('');
+  });
+
+  test('text that merely contains markup or a color is just a name', async ({ page }) => {
+    for (const odd of ['<b>tomato</b>', 'tomato red', 'ff6347', 'facade', 'rgb(255, 99)', 'sky-550', 'red-', 'color(srgb 1 0 0)']) {
+      await page.locator('#seed').fill(odd);
+      await expect(hint(page)).toHaveText('');
+    }
+    await expect(page.locator('#seedHint b')).toHaveCount(0);
+  });
+
+  test('the engine\'s table of color names matches this browser\'s own, all 148', async ({ page }) => {
+    const names = Object.keys(E.CSS_COLORS);
+    const got = await page.evaluate((list) => list.map((n) => {
+      const el = document.createElement('i'); el.style.color = n; document.body.appendChild(el);
+      const c = getComputedStyle(el).color; el.remove(); return c;
+    }), names);
+    const want = names.map((n) => { const h = E.CSS_COLORS[n]; return `rgb(${parseInt(h.slice(1, 3), 16)}, ${parseInt(h.slice(3, 5), 16)}, ${parseInt(h.slice(5, 7), 16)})`; });
+    expect(names).toHaveLength(148);
+    expect(got).toEqual(want);
+  });
+});
+
 test.describe('"Why?" popup', () => {
   test('opens on hover and closes when the pointer leaves', async ({ page }) => {
     const pop = page.locator('#whyPop');
@@ -337,6 +461,152 @@ test.describe('"Why?" popup', () => {
     await page.keyboard.press('Escape');
     await expect(page.locator('#whyPop')).toBeHidden();
     await expect(page.locator('#whyBtn')).toBeFocused();
+  });
+});
+
+test.describe('"What can I type?" popup, next to the name label', () => {
+  const pop = (page) => page.locator('#typesPop');
+  const btn = (page) => page.locator('#typesBtn');
+
+  test('opens on hover, lists every kind of string, and closes when the pointer leaves', async ({ page }) => {
+    await expect(pop(page)).toBeHidden();
+    await btn(page).hover();
+    await expect(pop(page)).toBeVisible();
+    for (const heading of ['Any text', 'A color name', 'Hex', 'Tailwind colors', 'Color functions', 'What a color does']) await expect(pop(page)).toContainText(heading);
+    await expect(btn(page)).toHaveAttribute('aria-expanded', 'true');
+    await page.mouse.move(1000, 700);
+    await expect(pop(page)).toBeHidden();
+    await expect(btn(page)).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  test('stays open while the pointer travels from the "?" into the popup', async ({ page }) => {
+    await btn(page).hover();
+    const b = await btn(page).boundingBox();
+    const box = await pop(page).boundingBox();
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height + 2, { steps: 5 });
+    await page.mouse.move(box.x + box.width / 2, box.y + 30, { steps: 10 });
+    await expect(pop(page)).toBeVisible();
+  });
+
+  test('opens with the keyboard, closes with Escape (focus returns to the "?") or by clicking elsewhere', async ({ page }) => {
+    await btn(page).focus();
+    await page.keyboard.press('Enter');
+    await expect(pop(page)).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(pop(page)).toBeHidden();
+    await expect(btn(page)).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(pop(page)).toBeVisible();
+    await page.mouse.click(1000, 700);
+    await expect(pop(page)).toBeHidden();
+  });
+
+  test('has a name, and the label still goes to the input', async ({ page }) => {
+    await expect(btn(page)).toHaveAccessibleName('What can I type?');
+    await expect(btn(page)).toHaveAttribute('aria-controls', 'typesPop');
+    await btn(page).hover();
+    await expect(pop(page)).toHaveAccessibleName('What can I type?'); // a closed popup is not in the accessibility tree
+    await page.mouse.move(1000, 700);
+    await page.getByText('Project name (or any text)', { exact: true }).click();
+    await expect(page.locator('#seed')).toBeFocused();
+  });
+
+  test('every example it shows behaves as it says (all are colors except bare hex digits)', async ({ page }) => {
+    const examples = await pop(page).locator('code').allTextContents();
+    expect(examples.length).toBeGreaterThanOrEqual(15);
+    for (const ex of examples) {
+      if (ex === 'ff6600') expect(E.parseColor(ex), ex).toBeNull();
+      else if (ex === 'gold') expect(E.parseColor(ex).hue, ex).not.toBeNull();
+      else expect(E.parseColor(ex), ex).not.toBeNull();
+    }
+    expect(E.parseColor('#ff6600cc').hex).toBe('#ff6600'); // "alpha is ignored"
+    expect(E.parseColor('red').hex).toBe(E.CSS_COLORS.red);  // "red and green mean the CSS colors"
+    expect(E.parseColor('red-500').hex).toBe(E.TAILWIND_COLORS.red[5]);
+    expect(E.parseColor('sky').hex).toBe(E.TAILWIND_COLORS.sky[5]); // "a bare name is the 500 shade"
+  });
+});
+
+test.describe('the "?" on the color note', () => {
+  const btn = (page) => page.locator('#hintBtn');
+  const pop = (page) => page.locator('#hintPop');
+
+  test('is only there while the note is, and the popup is closed to start with', async ({ page }) => {
+    await expect(btn(page)).toBeHidden();
+    await page.locator('#seed').fill('tomato');
+    await expect(btn(page)).toBeVisible();
+    await expect(pop(page)).toBeHidden();
+    await page.locator('#seed').fill('tomatoes');
+    await expect(btn(page)).toBeHidden();
+  });
+
+  test('explains how a color is used, and why a gray is not', async ({ page }) => {
+    await page.locator('#seed').fill('tomato');
+    await btn(page).hover();
+    await expect(pop(page)).toBeVisible();
+    await expect(pop(page)).toContainText('The hue comes from your color');
+    await expect(pop(page)).toContainText('Same color, same theme');
+    await expect(pop(page)).not.toContainText('No hue to borrow', { useInnerText: true }); // the gray text is in the page but hidden
+    await page.mouse.move(1000, 700);
+    await expect(pop(page)).toBeHidden();
+
+    await page.locator('#seed').fill('gray');
+    await btn(page).hover();
+    await expect(pop(page)).toBeVisible();
+    await expect(pop(page)).toContainText('No hue to borrow');
+    await expect(pop(page)).toContainText('hashed like any other string');
+    await expect(pop(page)).not.toContainText('The hue comes from your color', { useInnerText: true });
+  });
+
+  test('the examples in it are what it says they are', async ({ page }) => {
+    await page.locator('#seed').fill('tomato');
+    await btn(page).hover();
+    const used = await pop(page).locator('[data-hint="used"] code').allTextContents();
+    expect(used).toEqual(['gold', 'tomato', '#ff6347', 'rgb(255 99 71)']);
+    expect(E.parseColor('gold').hue).not.toBeNull();
+    for (const t of ['tomato', '#ff6347', 'rgb(255 99 71)']) expect(E.buildTheme(t, 'dark').palette.sbBg, t).toBe(E.buildTheme('tomato', 'dark').palette.sbBg);
+    expect(E.parseColor('ivory').hue).toBeNull(); // the gray example
+  });
+
+  test('works from the keyboard, and closes when the text stops being a color', async ({ page }) => {
+    await page.locator('#seed').fill('gray');
+    await btn(page).focus();
+    await page.keyboard.press('Enter');
+    await expect(pop(page)).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(pop(page)).toBeHidden();
+    await expect(btn(page)).toBeFocused();
+    await btn(page).hover();
+    await expect(pop(page)).toBeVisible();
+    await page.locator('#seed').fill('food');
+    await expect(pop(page)).toBeHidden();
+    await expect(btn(page)).toBeHidden();
+  });
+});
+
+test.describe('the "?" popups on a phone', () => {
+  test.use({ hasTouch: true, isMobile: true, viewport: { width: 320, height: 640 } });
+  const fits = async (page, sel) => {
+    const box = await page.locator(sel).boundingBox();
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(320);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  };
+
+  test('a tap opens "What can I type?" inside the screen and a tap elsewhere closes it', async ({ page }) => {
+    await page.locator('#typesBtn').tap();
+    await expect(page.locator('#typesPop')).toBeVisible();
+    await fits(page, '#typesPop');
+    await page.locator('h1').tap();
+    await expect(page.locator('#typesPop')).toBeHidden();
+  });
+
+  test('a tap opens the color note popup inside the screen, and a second tap on the "?" closes it', async ({ page }) => {
+    await page.locator('#seed').fill('gray');
+    await page.locator('#hintBtn').tap();
+    await expect(page.locator('#hintPop')).toBeVisible();
+    await fits(page, '#hintPop');
+    await page.locator('#hintBtn').tap();
+    await expect(page.locator('#hintPop')).toBeHidden();
   });
 });
 

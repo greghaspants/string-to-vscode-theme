@@ -13,6 +13,10 @@ test('the random-word list is clean: unique, trimmed, lowercase letters and sing
   assert.ok(!WORDS.includes('food'), 'the starting name would make the first shuffle a no-op');
 });
 
+test('no random word is a CSS color name or hex, or it would take that color\'s hue instead of a hashed one', () => {
+  for (const w of WORDS) assert.equal(E.parseColor(w), null, w);
+});
+
 test('the coffee words are in the list', () => {
   for (const w of ['coffee', 'cold brew', 'latte', 'espresso', 'mocha']) assert.ok(WORDS.includes(w), w);
 });
