@@ -151,3 +151,23 @@ test('the bright or dark choice for a string does not depend on the mode, and do
     assert.deepEqual(Object.keys(d.colors).filter((k) => FRAME.has(k)).sort(), E.FRAME_KEYS.slice().sort());
   }
 });
+
+test('the title bar search box (command center) follows the bar: text, outline and hover, in every theme and both modes', () => {
+  const CC = ['commandCenter.foreground', 'commandCenter.activeForeground', 'commandCenter.inactiveForeground', 'commandCenter.background', 'commandCenter.activeBackground', 'commandCenter.border', 'commandCenter.activeBorder', 'commandCenter.inactiveBorder'];
+  for (const k of CC) assert.ok(E.FRAME_KEYS.includes(k), `${k} is a frame key`);
+  const seeds = ['food', 'yellow', 'gold', 'white', 'black', 'gray', 'teal', 'navy', 'alpha', 'cherry', 'tomato', 'sky-300', 'sky-700', '#ffeb3b'].concat(words(150));
+  for (const s of seeds) for (const mode of ['dark', 'light']) {
+    const t = E.buildTheme(s, mode), c = t.colors;
+    for (const k of CC) assert.match(c[k], HEX, `${s} ${k}`);
+    assert.equal(c['commandCenter.foreground'], c['titleBar.activeForeground'], s);
+    assert.equal(c['commandCenter.activeForeground'], c['titleBar.activeForeground'], s);
+    assert.equal(c['commandCenter.inactiveForeground'], c['titleBar.inactiveForeground'], s);
+    assert.equal(c['commandCenter.background'], c['titleBar.activeBackground'], s);
+    assert.equal(c['commandCenter.activeBackground'], c['statusBarItem.hoverBackground'], s);
+    // readable: text on the box at rest and hovered (4.5:1), the outline against the bar (3:1)
+    for (const bg of ['commandCenter.background', 'commandCenter.activeBackground']) assert.ok(E.contrast(c['commandCenter.foreground'], c[bg]) >= 4.5, `${s} ${mode} text on ${bg}`);
+    assert.ok(E.contrast(c['commandCenter.inactiveForeground'], c['commandCenter.background']) >= 4.5, `${s} ${mode} inactive text`);
+    for (const k of ['commandCenter.border', 'commandCenter.activeBorder', 'commandCenter.inactiveBorder']) assert.ok(E.contrast(c[k], c['titleBar.activeBackground']) >= 3, `${s} ${mode} ${k}`);
+    for (const label of ['Command center text, resting and on hover', 'Command center text in an inactive window', 'Command center outline']) assert.ok(t.checks.find((x) => x.label === label && x.pass), `${s} ${label}`);
+  }
+});
