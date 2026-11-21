@@ -15,8 +15,10 @@ const crypto = require('node:crypto');
 const E = require('../../src/engine.js');
 const { words } = require('./words.js');
 
+// The last ten are colors: names, a hex, a light name that gets darkened, a gray that falls back to the hash, a Tailwind shade and family, a color function and a spaced name.
 const GOLDEN_SEEDS = ['food', 'foods', '', 'Hello World', 'ñandú', '🚀', 'tidepool', 'ember', 'quarry', 'lantern', 'basalt', 'marigold']
-  .concat(words(28));
+  .concat(words(28))
+  .concat(['tomato', 'Teal', '#ff6600', 'gold', 'rebeccapurple', 'gray', 'sky-500', 'amber', 'oklch(70% 0.15 300)', 'dark red']);
 
 const sha = (value) => crypto.createHash('sha256').update(typeof value === 'string' ? value : JSON.stringify(value)).digest('hex').slice(0, 20);
 

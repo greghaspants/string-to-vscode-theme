@@ -48,7 +48,7 @@ code, pre, .mono { font-family: var(--mono); }
 .startip::before { content: ""; position: absolute; top: -5px; left: var(--caret, 50%); width: 8px; height: 8px; background: var(--bg); border-left: 1px solid var(--inputborder); border-top: 1px solid var(--inputborder); transform: translateX(-50%) rotate(45deg); }
 .lede { color: var(--dim); max-width: 60ch; }
 .lederow { position: relative; align-self: flex-start; max-width: 100%; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 10px; }
-.whybtn { background: none; border: 0; padding: 2px 4px; margin: -2px -4px; border-radius: 4px; cursor: pointer; font: 600 1rem/1.5 var(--sans); color: var(--accent); text-decoration: underline dotted; text-underline-offset: 4px; }
+.whybtn { background: none; border: 0; padding: 2px 4px; margin: -2px -4px; border-radius: 4px; cursor: pointer; font: 600 1rem/1.5 var(--sans); color: var(--accent); text-decoration: underline dotted; text-underline-offset: 4px; -webkit-tap-highlight-color: transparent; }
 .whybtn:hover, .whybtn[aria-expanded="true"] { color: var(--fg); }
 .whypop { position: absolute; left: 0; top: 100%; z-index: 30; padding-top: 10px; width: min(460px, calc(100vw - 2.5rem)); }
 .whypop:focus { outline: none; }
@@ -68,6 +68,13 @@ code, pre, .mono { font-family: var(--mono); }
 .seedrow { display: flex; flex-wrap: wrap; gap: 12px; align-items: stretch; }
 .seedrow .seed { flex: 1 1 15rem; width: auto; }
 .seedrow .btn { flex: none; }
+.labelrow { position: relative; display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; }
+.labelrow .fieldlabel { margin: 0; }
+.hintrow { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 0 10px; min-height: 1.4rem; margin: 6px 0 0; } /* the line is always there, so a hint appearing never moves the page */
+.seedhint { margin: 0; display: flex; align-items: center; gap: 8px; font-size: .85rem; line-height: 1.3; color: var(--dim); }
+.qbtn { font-size: .9rem; line-height: 1.2; } /* the small "?" next to a label or a note */
+.why code { font-family: var(--mono); font-size: .86em; color: var(--fg); white-space: nowrap; }
+.seedhint i { flex: none; width: 14px; height: 14px; border-radius: 4px; border: 1px solid var(--inputborder); }
 .row { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; }
 .btn {
   background: var(--btn); color: var(--btnfg); border: 0; border-radius: 8px; padding: 10px 18px; cursor: pointer;
@@ -244,10 +251,36 @@ td.num, th.num { text-align: right; white-space: nowrap; font-variant-numeric: t
     <div class="studio">
       <section class="controls" aria-label="Project name and options">
     <div>
-      <label for="seed" class="fieldlabel">Project name (or any text)</label>
+      <div class="labelrow" id="typesWrap">
+        <label for="seed" class="fieldlabel">Project name (or any text)</label>
+        <button class="whybtn qbtn" id="typesBtn" type="button" aria-expanded="false" aria-controls="typesPop" aria-label="What can I type?">?</button>
+        <div class="whypop" id="typesPop" role="region" aria-labelledby="typesHead" tabindex="-1" hidden>
+          <div class="whybox why">
+            <h2 id="typesHead" class="fieldlabel">What can I type?</h2>
+            <div><b>Any text</b><p>A project name, a word, anything. It is hashed, so the same text gives the same colors every time, on every machine.</p></div>
+            <div><b>A color name</b><p>CSS names such as <code>teal</code> or <code>tomato</code>, in any case, also spaced or hyphenated: <code>dark red</code>, <code>dark-red</code>.</p></div>
+            <div><b>Hex</b><p><code>#ff6600</code> or <code>#f60</code>, with or without alpha (<code>#ff6600cc</code>; alpha is ignored). Bare digits like <code>ff6600</code> are just text.</p></div>
+            <div><b>Tailwind colors</b><p><code>sky</code>, <code>emerald-600</code>, <code>slate 300</code>. A bare name is the 500 shade. <code>red</code> and <code>green</code> mean the CSS colors; add a shade, as in <code>red-500</code>, for Tailwind's.</p></div>
+            <div><b>Color functions</b><p><code>rgb(255 99 71)</code>, <code>hsl(9 100% 64%)</code>, <code>hwb(9 39% 0%)</code>, <code>oklch(70% 0.15 300)</code>.</p></div>
+            <div><b>What a color does</b><p>A color sets the hue of the whole theme, and the title, activity and status bars use the color itself. A dark color gets light text on the bars; a light one such as <code>gold</code> keeps a bright bar with dark text. Grays and near-whites have no hue, so they are used as plain text.</p></div>
+          </div>
+        </div>
+      </div>
       <div class="seedrow">
         <input id="seed" class="seed" type="text" value="food" maxlength="200" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="my-project">
         <button class="btn ghost" id="shuffle" type="button">Try a random word</button>
+      </div>
+      <div class="hintrow" id="hintWrap">
+        <p class="seedhint" id="seedHint" aria-live="polite"></p>
+        <button class="whybtn qbtn" id="hintBtn" type="button" aria-expanded="false" aria-controls="hintPop" aria-label="More about this note" hidden>?</button>
+        <div class="whypop" id="hintPop" role="region" aria-label="About this note" tabindex="-1" hidden>
+          <div class="whybox why">
+            <div data-hint="used"><b>The hue comes from your color</b><p>The editor itself keeps the page's own lightness and saturation so text stays readable (7:1 for body text, 4.5:1 for other text). The title, activity and status bars use your color's brightness: a dark color gets light text there, and a light one such as <code>gold</code> keeps a bright bar and gets dark text, so it still passes 4.5:1.</p></div>
+            <div data-hint="used"><b>Same color, same theme</b><p>However you write it (<code>tomato</code>, <code>#ff6347</code>, <code>rgb(255 99 71)</code>), the result is identical, in both the light and dark versions.</p></div>
+            <div data-hint="gray" hidden><b>No hue to borrow</b><p>Grays, white, black and very pale tints such as <code>ivory</code> have too little color to take a hue from.</p></div>
+            <div data-hint="gray" hidden><b>Treated as plain text</b><p>The text is hashed like any other string, so it always gives the same colors, but they have nothing to do with how gray it looks.</p></div>
+          </div>
+        </div>
       </div>
     </div>
     <div class="row top">
@@ -385,8 +418,8 @@ td.num, th.num { text-align: right; white-space: nowrap; font-variant-numeric: t
       '--ansi-brightblack': '#666666', '--ansi-brightred': '#cd3131', '--ansi-brightgreen': '#14ce14', '--ansi-brightyellow': '#b5ba00', '--ansi-brightblue': '#0451a5', '--ansi-brightmagenta': '#bc05bc', '--ansi-brightcyan': '#0598bc', '--ansi-brightwhite': '#a5a5a5'
     }
   };
-  var WORDS = ['lantern', 'basalt', 'marigold', 'harbor', 'juniper', 'cobalt', 'saffron', 'glacier', 'tangerine', 'moss', 'ink', 'orchard', 'thistle', 'copper', 'meadow', 'velvet', 'comet', 'pebble', 'sorbet', 'dune', 'fjord', 'lilac', 'nectar', 'obsidian', 'paprika', 'ripple', 'sage', 'umber', 'wisp', 'zephyr', 'coffee', 'cold brew', 'latte', 'espresso', 'mocha', 'cortado', 'macchiato', 'americano', 'affogato', 'ristretto'];
-  var current = null, other = null, snippetText = '';
+  var WORDS = ['lantern', 'basalt', 'marigold', 'harbor', 'juniper', 'cobalt', 'saffron', 'glacier', 'tangerine', 'moss', 'ink', 'orchard', 'quartz', 'copper', 'meadow', 'velvet', 'comet', 'pebble', 'sorbet', 'dune', 'fjord', 'lilac', 'nectar', 'obsidian', 'paprika', 'ripple', 'sage', 'umber', 'wisp', 'zephyr', 'coffee', 'cold brew', 'latte', 'espresso', 'mocha', 'cortado', 'macchiato', 'americano', 'affogato', 'ristretto'];
+  var current = null, other = null, snippetText = '', hintPopup = null;
   var MODE_HINT = 'Sets whether the generated theme is dark or light. Auto picks from the name. If you color only part of the window, match your current theme.';
 
   /* ---------- preview markup ---------- */
@@ -567,9 +600,26 @@ td.num, th.num { text-align: right; white-space: nowrap; font-variant-numeric: t
       $(id).disabled = state.every; $(id).parentNode.classList.toggle('off', state.every);
     });
   }
+  /* A color in the name field sets the hue; say so, or say why a gray did not. The "?" explains more. */
+  function renderSeedHint() {
+    var el = $('seedHint'), c = current.color, name = state.seed.trim();
+    el.textContent = '';
+    $('hintBtn').hidden = !c;
+    if (!c) { hintPopup.close(); return; }
+    [].forEach.call($('hintPop').querySelectorAll('[data-hint]'), function (d) { d.hidden = d.getAttribute('data-hint') !== (c.used ? 'used' : 'gray'); });
+    if (c.used) {
+      var chip = document.createElement('i');
+      chip.style.background = c.hex; chip.setAttribute('aria-hidden', 'true');
+      el.appendChild(chip);
+      el.appendChild(document.createTextNode('Using the hue of ' + name));
+    } else {
+      el.appendChild(document.createTextNode(name + ' has no clear hue, so it is treated like any other string.'));
+    }
+  }
   function render() {
     syncOptions();
     current = E.buildTheme(state.seed, state.mode);
+    renderSeedHint();
     other = state.adapt ? E.buildTheme(state.seed, current.dark ? 'light' : 'dark') : null;
     applyVars(current);
     applyPreviewVars(current);
@@ -626,9 +676,10 @@ td.num, th.num { text-align: right; white-space: nowrap; font-variant-numeric: t
       navigator.clipboard.writeText(snippetText).then(function () { ok = true; done(); }, fallback);
     } catch (e) { fallback(); }
   }
-  /* ---------- "Why?" popup: hover or click opens it; leaving it, clicking elsewhere or Esc closes it ---------- */
-  function initWhy() {
-    var wrap = $('whyWrap'), btn = $('whyBtn'), pop = $('whyPop'), byHover = false;
+  /* ---------- the "?" popups ("Why?", "What can I type?", and the note under the name field):
+     hover or click opens one; leaving it, clicking elsewhere or Esc closes it ---------- */
+  function initPopup(wrapId, btnId, popId) {
+    var wrap = $(wrapId), btn = $(btnId), pop = $(popId), byHover = false;
     function set(open) { pop.hidden = !open; btn.setAttribute('aria-expanded', String(open)); if (!open) byHover = false; }
     btn.addEventListener('pointerenter', function (e) { if (e.pointerType === 'mouse' && pop.hidden) { set(true); byHover = true; } });
     wrap.addEventListener('pointerleave', function (e) { if (e.pointerType === 'mouse') set(false); });
@@ -639,6 +690,7 @@ td.num, th.num { text-align: right; white-space: nowrap; font-variant-numeric: t
     document.addEventListener('pointerdown', function (e) { if (!pop.hidden && !wrap.contains(e.target)) set(false); });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !pop.hidden) { set(false); btn.focus(); } });
     wrap.addEventListener('focusout', function (e) { if (!pop.hidden && !wrap.contains(e.relatedTarget)) set(false); });
+    return { close: function () { set(false); } };
   }
   /* ---------- "VS-Code*" note: hover or click opens it; leaving, clicking elsewhere or Esc closes it ---------- */
   function initStar() {
@@ -668,7 +720,9 @@ td.num, th.num { text-align: right; white-space: nowrap; font-variant-numeric: t
     window.addEventListener('resize', function () { if (!tip.hidden) place(); });
   }
   function init() {
-    initWhy();
+    initPopup('whyWrap', 'whyBtn', 'whyPop');
+    initPopup('typesWrap', 'typesBtn', 'typesPop');
+    hintPopup = initPopup('hintWrap', 'hintBtn', 'hintPop');
     initStar();
     Object.assign(state, U.parse(location.hash));
     $('vsc').innerHTML = previewHtml();

@@ -9,7 +9,8 @@ Not affiliated with VS Code. This is just something a random person built for fu
 ## What it does
 
 - Turns any text into a palette designed in OKLCH and gamut-mapped to sRGB hex, which is the only color format VS Code themes accept.
-- Colors the **title bar, activity bar (left icon strip) and status bar** with one shared bright accent. This is the part that makes windows recognizable, so it is always on.
+- Takes a **color** in the name field and uses its hue, with a note under the field saying so. A **?** next to the field label lists everything you can type, and a **?** on the note explains how the color is used (or why a gray is not). Accepted: CSS color names (`teal`, `tomato`, `rebeccapurple`, any case, also spaced or hyphenated like `dark red`), hex (`#ff6600`, `#f60`, and with alpha `#ff6600cc`, which is ignored), Tailwind colors (`sky`, `emerald-600`; a bare family is its 500 shade, and CSS wins for names both have, so `red` is CSS red and `red-500` is Tailwind), and `rgb()`, `hsl()`, `hwb()` and `oklch()`. Bare hex digits like `ff6600` are not accepted, because `facade` and `bad` are words. The hue is the color's, and the title, activity and status bars use its brightness too: a dark color (`teal`, `navy`) gets light text on the bars, and a light one (`gold`, `yellow`, `sky-300`) keeps a bright bar and gets dark text instead. Every other text color is fitted for contrast, so the editor itself is not literally that color. The same color gives the same theme however it is typed (`Tomato`, `#FF6347`, `rgb(255 99 71)`). Grays and near-whites (such as `gray`, `white`, `ivory`, `rgb(128 128 128)`) have no hue, so they are treated like any other string.
+- Colors the **title bar, activity bar (left icon strip) and status bar** with one shared accent. This is the part that makes windows recognizable, so it is always on. About a third of names get a bright bar with dark text (pastel to vivid), the rest a deep bar with light text, so windows vary in more than hue.
 - Optionally colors the side bars, the coding palette, the panel and terminal, or everything.
 - Can generate a **dark and a light version** of everything except that frame. The snippet then follows whichever theme you use, including when your OS switches between light and dark.
 - Shows a live preview of a VS Code window (with hover colors), including simulated color-vision deficiencies.
@@ -68,10 +69,10 @@ Tokens: `dark` `light` (theme brightness or preview mode), `protan` `deutan` `tr
 ## How the colors are made
 
 1. **Hash.** The trimmed name goes through FNV-1a with a murmur3 finalizer to a 32-bit number. Two more hashes of the name (prefixed with control characters) drive the small lightness and chroma variations and seed a small PRNG (mulberry32).
-2. **Hue and brightness.** The first hash gives the hue (0 to 359). Auto mode picks dark or light from the second hash (about 62% dark).
+2. **Hue and brightness.** The first hash gives the hue (0 to 359). Auto mode picks dark or light from the second hash (about 62% dark). If the text is a color (name, hex, Tailwind color or color function) with enough chroma to have a hue, that color's OKLCH hue is used instead, and the three hashes are taken over the canonical sRGB hex, so `Tomato`, `tomato`, `#FF6347` and `rgb(255 99 71)` are one theme. The hue comes from the color. If the color is light (OKLCH lightness of at least 0.6, which is where white text on it would fall under 4.5:1), the frame bars use its lightness (capped at 0.93) and its chroma with dark text, and hover and pressed states go a step darker; otherwise they are dark with light text. Strings that are not colors (and grays) take the bright branch for about 35% of names, chosen by a separate hash so no other color moves. Either way the contrast fitting below still holds for every pair, and the frame is still identical in dark and light builds.
 3. **Design in OKLCH.** Surfaces, text and accents are placed by lightness and chroma, then gamut-mapped by lowering chroma at fixed lightness and hue until the color fits sRGB.
 4. **Fit to contrast.** Each text color starts at a target lightness and moves toward the text direction in small steps until it meets its target on every surface it can appear on, measured on the final hex values.
-5. **Frame is mode-independent.** The accent behind the title bar, activity bar and status bar is built without looking at light or dark, so it is identical in both versions. A unit test checks this for every name.
+5. **Frame is mode-independent.** The accent behind the title bar, activity bar and status bar is built without looking at light or dark, so it is identical in both versions. A unit test checks this for every name. Whether the bar is bright (dark text) or deep (light text) is also decided without looking at the mode: a typed color decides it by its own lightness (0.6 or more is bright), and any other string by its own hash (`BRIGHT_SHARE`, about 35%, at a lightness from 0.64 to 0.88). Only the frame keys depend on it.
 
 Because everything is plain arithmetic on the name, the output is the same on every machine. A golden snapshot test pins this down, see [Changing the algorithm](#changing-the-algorithm).
 
@@ -84,13 +85,14 @@ Because everything is plain arithmetic on the name, the output is the same on ev
 │   └── template.html        the page: markup, CSS and the inline UI script
 ├── scripts/
 │   ├── build.js             template + engine -> dist/index.html (one file)
+│   ├── gen-tailwind.js      prints the Tailwind palette table for src/engine.js from the tailwindcss package
 │   ├── serve.js             tiny static server for dist/, used by Playwright
 │   └── update-golden.js     regenerates tests/fixtures/golden.json
 ├── tests/
-│   ├── unit/                node:test: themes, snippets, URL codec, random-word list, golden snapshot
+│   ├── unit/                node:test: themes, snippets, URL codec, color input, random-word list, golden snapshot
 │   ├── e2e/                 Playwright: app behavior, layout, post-deploy smoke test
 │   ├── helpers/             shared test code (word generator, golden computation)
-│   └── fixtures/golden.json pinned output for 40 names
+│   └── fixtures/golden.json pinned output for 50 names
 ├── .github/
 │   ├── workflows/ci.yml     verify -> deploy -> smoke
 │   └── dependabot.yml       weekly updates for actions and dev dependencies
@@ -154,12 +156,13 @@ CHROME_PATH=/usr/bin/google-chrome pnpm exec playwright test   # use an installe
 
 | Suite | Covers |
 | --- | --- |
-| `tests/unit/themes.test.js` | Every contrast check passes for 3,000+ themes (1,500 names, dark and light). All colors are `#rrggbb`. Determinism. Color-blind separation floors. Option groups exist and do not overlap. The frame is identical in dark and light. |
+| `tests/unit/themes.test.js` | Every contrast check passes for 3,900+ themes (1,500 names, all 148 CSS color names, every Tailwind shade, color functions and a hex sweep, dark and light). All colors are `#rrggbb`. Determinism. Color-blind separation floors. Option groups exist and do not overlap. The frame is identical in dark and light. |
 | `tests/unit/snippet.test.js` | Each option adds exactly its keys and nothing else, with and without matching. Scoped `[*Dark*]` and `[*Light*]` structure. The snippet does not depend on the preview mode. Brace and base-theme switches. |
 | `tests/unit/url.test.js` | The URL codec: defaults, readable tokens, base32 names, reserved names, 2,000 random round-trips, damaged links. |
 | `tests/unit/words.test.js` | The "Try a random word" list (read from `src/template.html`): unique, clean, includes the coffee names, every word passes every contrast target and survives the URL round trip. |
-| `tests/unit/golden.test.js` | A snapshot of 40 names (colors, token rules, three snippet variants) so a code change cannot silently recolor existing windows. |
-| `tests/e2e/app.spec.js` | The page in a real browser: typing, links, every option, locking under "Color everything", light and dark controls, color-blind filters, Copy, the "Why?" popup and the "VS-Code*" note (mouse, keyboard, touch), the not-affiliated note, every "Try a random word" pick, no network requests beyond the page, no console errors. |
+| `tests/unit/colors.test.js` | Color input: the 148-name table and the Tailwind table, what parses and what does not (names with separators, hex with alpha, Tailwind shades, `rgb()` `hsl()` `hwb()` `oklch()`), hue follows the color, the same color gives the same theme however typed, grays fall back to the hash, every named color and Tailwind shade and a hex sweep pass every contrast target. |
+| `tests/unit/golden.test.js` | A snapshot of 50 names (ten of them colors) (colors, token rules, three snippet variants) so a code change cannot silently recolor existing windows. |
+| `tests/e2e/app.spec.js` | The page in a real browser: typing, links, every option, locking under "Color everything", light and dark controls, color-blind filters, Copy, the "Why?" popup, the "What can I type?" popup, the "?" on the color note and the "VS-Code*" note (mouse, keyboard, touch, and that every example they show behaves as written), the not-affiliated note, every "Try a random word" pick, the color hint, that typed colors give the same snippet however they are written, and that the engine's color-name table and its `rgb()` `hsl()` `hwb()` `oklch()` parsing match the browser's own, no network requests beyond the page, no console errors. |
 | `tests/e2e/layout.spec.js` | Two-column layout with the pinned preview, stacked layout on tablet and phone, no horizontal scrolling from 320 px to 1920 px. |
 | `tests/e2e/smoke.spec.js` | Runs against a live URL after deploy. See below. |
 

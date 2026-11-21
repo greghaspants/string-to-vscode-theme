@@ -1,22 +1,22 @@
 {
   "food": {
     "dark": {
-      "titleBar": "#9a1e55",
+      "titleBar": "#ff98ba",
       "editorBg": "#1e1216",
       "keyword": "#c2d980",
-      "theme": "04fd72d95fc016500ab4"
+      "theme": "e23432f87183da9bb02e"
     },
     "light": {
-      "titleBar": "#9a1e55",
+      "titleBar": "#ff98ba",
       "editorBg": "#fdebf0",
       "keyword": "#48318a",
-      "theme": "6366b759202b8d4ef3ed"
+      "theme": "7dc2f0dfaed930844995"
     },
     "auto": "dark",
     "snippets": {
-      "default": "4f0ec840f8dbeaca929b",
-      "allAreas": "f7f99cf3b821ed03c909",
-      "everythingNoAdapt": "db6df5acbfa8f58a6434"
+      "default": "36bc254fee87a53b7158",
+      "allAreas": "b7d9c720f2e8fd00155b",
+      "everythingNoAdapt": "3f6315119d12d89972e1"
     }
   },
   "foods": {
@@ -41,22 +41,22 @@
   },
   "(empty)": {
     "dark": {
-      "titleBar": "#005e8d",
+      "titleBar": "#69c2ff",
       "editorBg": "#0a151d",
       "keyword": "#9eb035",
-      "theme": "a78f784a10fabc1c6a12"
+      "theme": "e8b677a7e3bfbb29caca"
     },
     "light": {
-      "titleBar": "#005e8d",
+      "titleBar": "#69c2ff",
       "editorBg": "#e2f1fd",
       "keyword": "#282c00",
-      "theme": "2a2b3ff820778153672e"
+      "theme": "0a5a739de9f5138ab122"
     },
     "auto": "dark",
     "snippets": {
-      "default": "25709eb3818b69d71369",
-      "allAreas": "bdde90069d7ac3efe6bb",
-      "everythingNoAdapt": "5437a39d12c4d2c121df"
+      "default": "70c642a634aa921d5f85",
+      "allAreas": "ddc40d812fa9a548ea74",
+      "everythingNoAdapt": "c00e1255bb32442b19a6"
     }
   },
   "Hello World": {
@@ -161,42 +161,42 @@
   },
   "quarry": {
     "dark": {
-      "titleBar": "#454ca6",
+      "titleBar": "#7c8aea",
       "editorBg": "#14172b",
       "keyword": "#f19369",
-      "theme": "3a5ebb6a1fbadee425d8"
+      "theme": "5aa04ccabf1d8bec6fde"
     },
     "light": {
-      "titleBar": "#454ca6",
+      "titleBar": "#7c8aea",
       "editorBg": "#eff2ff",
       "keyword": "#621e56",
-      "theme": "0bbe272703fda12527ba"
+      "theme": "28a70c1306d71cfcd889"
     },
     "auto": "light",
     "snippets": {
-      "default": "432f75fe2cefd5099999",
-      "allAreas": "6a5be9d39f7c1238869c",
-      "everythingNoAdapt": "2d7917819bf7d9b3b419"
+      "default": "ece6ae2df71a44d0300e",
+      "allAreas": "725a9a0aa6ee353c3a02",
+      "everythingNoAdapt": "1ba8512188468582890a"
     }
   },
   "lantern": {
     "dark": {
-      "titleBar": "#943327",
+      "titleBar": "#db7363",
       "editorBg": "#2c211f",
       "keyword": "#00cbdd",
-      "theme": "dbcce49cec6254b8821f"
+      "theme": "797ce19b2cea6042ddd3"
     },
     "light": {
-      "titleBar": "#943327",
+      "titleBar": "#db7363",
       "editorBg": "#fffaf9",
       "keyword": "#122789",
-      "theme": "616926afc5d8bb8e4f4f"
+      "theme": "e47fedb8d551f19c54ee"
     },
     "auto": "dark",
     "snippets": {
-      "default": "a5f27dc5986a269ef48e",
-      "allAreas": "d046ca1cfa09a0f5a412",
-      "everythingNoAdapt": "9feec90329a5657983e1"
+      "default": "a0dfe04b91169e3ed9ea",
+      "allAreas": "29b7f7cff6cc71705e98",
+      "everythingNoAdapt": "f39ff85454d95c040bea"
     }
   },
   "basalt": {
@@ -261,42 +261,42 @@
   },
   "qxcmopu": {
     "dark": {
-      "titleBar": "#0c6b18",
+      "titleBar": "#6ec16e",
       "editorBg": "#111e11",
       "keyword": "#9ef094",
-      "theme": "bdaa9bc6d30d955b8e5b"
+      "theme": "1ace12469b610441fac6"
     },
     "light": {
-      "titleBar": "#0c6b18",
+      "titleBar": "#6ec16e",
       "editorBg": "#e8fae7",
       "keyword": "#004041",
-      "theme": "7eb84dc067505ff44df5"
+      "theme": "d8a4ea79241221b068a4"
     },
     "auto": "light",
     "snippets": {
-      "default": "17ac66a948c8bf1fa7a5",
-      "allAreas": "9d2297bdb3e469f557f8",
-      "everythingNoAdapt": "2c43439a4c972d173382"
+      "default": "37ab10043970b22ee4b4",
+      "allAreas": "c2f4db99a0724f836804",
+      "everythingNoAdapt": "49847279432bed47a62a"
     }
   },
   "t": {
     "dark": {
-      "titleBar": "#006084",
+      "titleBar": "#00bafb",
       "editorBg": "#041f2c",
       "keyword": "#00c4a6",
-      "theme": "01c9a43198c936c4e9ad"
+      "theme": "d303bab76dbea33ea277"
     },
     "light": {
-      "titleBar": "#006084",
+      "titleBar": "#00bafb",
       "editorBg": "#ebf8ff",
       "keyword": "#552a00",
-      "theme": "cddc75c413ec14a370cd"
+      "theme": "43b6529b36e3fd4778ed"
     },
     "auto": "dark",
     "snippets": {
-      "default": "3e23c854ffe4a5c5c4b5",
-      "allAreas": "658fb657604373644011",
-      "everythingNoAdapt": "81431f6085ff5a0484f4"
+      "default": "c6da9412d9f8fc5e5e38",
+      "allAreas": "e653dc3bd2a2c6ce9cb5",
+      "everythingNoAdapt": "4a2321df167a3b24f54c"
     }
   },
   "bslkykyzrkmh": {
@@ -341,22 +341,22 @@
   },
   "hozauh": {
     "dark": {
-      "titleBar": "#813a6e",
+      "titleBar": "#c779af",
       "editorBg": "#2c1826",
       "keyword": "#e897c7",
-      "theme": "cf25ad9d5444a02f343d"
+      "theme": "444bb8802a6d29cb68a9"
     },
     "light": {
-      "titleBar": "#813a6e",
+      "titleBar": "#c779af",
       "editorBg": "#fff5fb",
       "keyword": "#004a34",
-      "theme": "03ef8b2c227c220e8ba5"
+      "theme": "de8d1bc246a7168ba0e3"
     },
     "auto": "light",
     "snippets": {
-      "default": "c998f2b957e1845d7252",
-      "allAreas": "4624f2b75b3613aa8b08",
-      "everythingNoAdapt": "dc409cc2de9fa313d2f2"
+      "default": "5dd61962b5fb65e4f406",
+      "allAreas": "871c94ac177b3ff8f870",
+      "everythingNoAdapt": "58d5013082d12d4cffce"
     }
   },
   "yorr": {
@@ -521,42 +521,42 @@
   },
   "ctvofxkfr": {
     "dark": {
-      "titleBar": "#506000",
+      "titleBar": "#859b34",
       "editorBg": "#1b1e12",
       "keyword": "#00c9aa",
-      "theme": "8e01b9221d25d3c08f0d"
+      "theme": "6a26d0dd9397efa5b7e7"
     },
     "light": {
-      "titleBar": "#506000",
+      "titleBar": "#859b34",
       "editorBg": "#f3f9e7",
       "keyword": "#484900",
-      "theme": "ccea44a93d9add833885"
+      "theme": "ca5aa30fb859471db70b"
     },
     "auto": "light",
     "snippets": {
-      "default": "645370f8cae716976815",
-      "allAreas": "83f15975e8e30f8ab33c",
-      "everythingNoAdapt": "e80ab95eea662b5c49e8"
+      "default": "4f73f6305bf9e4b512b9",
+      "allAreas": "cd31410c88e5ae7d2993",
+      "everythingNoAdapt": "aae1e7d3654787def4c1"
     }
   },
   "zarajcnxzh": {
     "dark": {
-      "titleBar": "#982f19",
+      "titleBar": "#ff9e88",
       "editorBg": "#1c1513",
       "keyword": "#a9c1ff",
-      "theme": "9d6ce6e73239bc969463"
+      "theme": "b65ac478bc3112bc3c30"
     },
     "light": {
-      "titleBar": "#982f19",
+      "titleBar": "#ff9e88",
       "editorBg": "#faeeec",
       "keyword": "#322800",
-      "theme": "2c34e8becb2fe5489c2d"
+      "theme": "72eb26004dd402342b75"
     },
     "auto": "dark",
     "snippets": {
-      "default": "6d1d8f351358b68b778d",
-      "allAreas": "0dd6c5ed8b83ec6cbebb",
-      "everythingNoAdapt": "837924613dde09709f29"
+      "default": "35176e25ee418df7a409",
+      "allAreas": "125a1d8e51e19afcb9f5",
+      "everythingNoAdapt": "05484182847e0589613b"
     }
   },
   "yxesp": {
@@ -681,22 +681,22 @@
   },
   "cjoafdufaip": {
     "dark": {
-      "titleBar": "#78309b",
+      "titleBar": "#d289fa",
       "editorBg": "#1c1222",
       "keyword": "#47dcd6",
-      "theme": "7254bbc862442b5f5ec5"
+      "theme": "89c421044dd3c17f9985"
     },
     "light": {
-      "titleBar": "#78309b",
+      "titleBar": "#d289fa",
       "editorBg": "#f8ecff",
       "keyword": "#690726",
-      "theme": "cc10b0d9b1d50c671ae9"
+      "theme": "15fc6b3b4d7165163072"
     },
     "auto": "light",
     "snippets": {
-      "default": "e486ba66b8e2429069b0",
-      "allAreas": "65a07f321ecb7649d57f",
-      "everythingNoAdapt": "8f54b117785980538152"
+      "default": "98a263d69b052fd40ae4",
+      "allAreas": "85ab948009f084d060ac",
+      "everythingNoAdapt": "bdd0c58910dc68c29883"
     }
   },
   "rsdcp": {
@@ -797,6 +797,206 @@
       "default": "8b3a69a02eff911d2d4f",
       "allAreas": "22fb7e1f5260252c77c4",
       "everythingNoAdapt": "a2da41e170a48c619445"
+    }
+  },
+  "tomato": {
+    "dark": {
+      "titleBar": "#ff6347",
+      "editorBg": "#220e0a",
+      "keyword": "#c5d8ff",
+      "theme": "f9b1db53ed0373c60abb"
+    },
+    "light": {
+      "titleBar": "#ff6347",
+      "editorBg": "#ffeae5",
+      "keyword": "#002f39",
+      "theme": "9395dcd2b9c0904be23a"
+    },
+    "auto": "light",
+    "snippets": {
+      "default": "81ee912eabc28289b637",
+      "allAreas": "eec18859031877f2e695",
+      "everythingNoAdapt": "2343a1e2f8c10ed5dd99"
+    }
+  },
+  "Teal": {
+    "dark": {
+      "titleBar": "#006565",
+      "editorBg": "#0b1616",
+      "keyword": "#a2ef94",
+      "theme": "6d5bad950a7a79499c35"
+    },
+    "light": {
+      "titleBar": "#006565",
+      "editorBg": "#e3f2f2",
+      "keyword": "#2a3f00",
+      "theme": "16a25b59ee46bc7b042f"
+    },
+    "auto": "light",
+    "snippets": {
+      "default": "c36a2045985e0f7f9ea5",
+      "allAreas": "96b5b5b3142057610c17",
+      "everythingNoAdapt": "8e20d71b9daf83a30e51"
+    }
+  },
+  "#ff6600": {
+    "dark": {
+      "titleBar": "#ff6600",
+      "editorBg": "#2b1d18",
+      "keyword": "#ffbc98",
+      "theme": "f53727e1a175c729066b"
+    },
+    "light": {
+      "titleBar": "#ff6600",
+      "editorBg": "#fff8f5",
+      "keyword": "#641902",
+      "theme": "230b68312ac96001069f"
+    },
+    "auto": "dark",
+    "snippets": {
+      "default": "fb14f34035738b13647a",
+      "allAreas": "0f972800454180545c24",
+      "everythingNoAdapt": "2ba6053af56e6163a6af"
+    }
+  },
+  "gold": {
+    "dark": {
+      "titleBar": "#ffd700",
+      "editorBg": "#24231c",
+      "keyword": "#ffa394",
+      "theme": "f3f0ca8805a5a121d17f"
+    },
+    "light": {
+      "titleBar": "#ffd700",
+      "editorBg": "#fdfbf2",
+      "keyword": "#483e00",
+      "theme": "364b8957562b1d57dec7"
+    },
+    "auto": "light",
+    "snippets": {
+      "default": "7310e4a586de29f91b6a",
+      "allAreas": "73b1b232f2060c3640b8",
+      "everythingNoAdapt": "79fb9d529b43f841bdcd"
+    }
+  },
+  "rebeccapurple": {
+    "dark": {
+      "titleBar": "#674291",
+      "editorBg": "#261f30",
+      "keyword": "#ff9e4b",
+      "theme": "494c46feeb1bda0b9240"
+    },
+    "light": {
+      "titleBar": "#674291",
+      "editorBg": "#fcfaff",
+      "keyword": "#292c00",
+      "theme": "a53c41efae252eb47f67"
+    },
+    "auto": "dark",
+    "snippets": {
+      "default": "d223951a92fef5afc464",
+      "allAreas": "88b65a42184a75112c2c",
+      "everythingNoAdapt": "fcfb737d0125db6fce4a"
+    }
+  },
+  "gray": {
+    "dark": {
+      "titleBar": "#d3caff",
+      "editorBg": "#1b1a24",
+      "keyword": "#deceff",
+      "theme": "d590ed24f1ef70e10065"
+    },
+    "light": {
+      "titleBar": "#d3caff",
+      "editorBg": "#f5f3ff",
+      "keyword": "#4a2678",
+      "theme": "621dfba20f31da5835c5"
+    },
+    "auto": "dark",
+    "snippets": {
+      "default": "9b582b958eeafd49f081",
+      "allAreas": "de346b4d43064970af43",
+      "everythingNoAdapt": "69100a9d2ff137a04ac1"
+    }
+  },
+  "sky-500": {
+    "dark": {
+      "titleBar": "#00a5ea",
+      "editorBg": "#091f2d",
+      "keyword": "#07e0d2",
+      "theme": "297bd408344bfcb0eb2b"
+    },
+    "light": {
+      "titleBar": "#00a5ea",
+      "editorBg": "#edf8ff",
+      "keyword": "#462166",
+      "theme": "970f4c5dcc6f0afd25f4"
+    },
+    "auto": "light",
+    "snippets": {
+      "default": "bb57cf4d509d124cef4c",
+      "allAreas": "e71976bc80723f46ad34",
+      "everythingNoAdapt": "34fb2566755b77908128"
+    }
+  },
+  "amber": {
+    "dark": {
+      "titleBar": "#f69e00",
+      "editorBg": "#271909",
+      "keyword": "#ffc06c",
+      "theme": "fed723af3c652e9bbc07"
+    },
+    "light": {
+      "titleBar": "#f69e00",
+      "editorBg": "#fff4e7",
+      "keyword": "#005149",
+      "theme": "12b4b4d9426d653489d7"
+    },
+    "auto": "dark",
+    "snippets": {
+      "default": "3d8d4e0f9d829623c809",
+      "allAreas": "23436e3dc5077afa36af",
+      "everythingNoAdapt": "9982e0678e4569a50489"
+    }
+  },
+  "oklch(70% 0.15 300)": {
+    "dark": {
+      "titleBar": "#ad87ed",
+      "editorBg": "#1d1727",
+      "keyword": "#bf9af2",
+      "theme": "797cbd7ad55d2b420fe2"
+    },
+    "light": {
+      "titleBar": "#ad87ed",
+      "editorBg": "#f6f2ff",
+      "keyword": "#3f2000",
+      "theme": "8b6911c97b59afa25e56"
+    },
+    "auto": "light",
+    "snippets": {
+      "default": "283e4d3b6168cde60dbb",
+      "allAreas": "b52a9a206f18244efd3b",
+      "everythingNoAdapt": "9834f4f77c44823ce2bd"
+    }
+  },
+  "dark red": {
+    "dark": {
+      "titleBar": "#972f24",
+      "editorBg": "#240f0c",
+      "keyword": "#f28f83",
+      "theme": "59598e29f4c6d808a0a1"
+    },
+    "light": {
+      "titleBar": "#972f24",
+      "editorBg": "#ffebe7",
+      "keyword": "#233680",
+      "theme": "54a206e70ccd636fdd4c"
+    },
+    "auto": "dark",
+    "snippets": {
+      "default": "6d81c540f8a4a47a5d2c",
+      "allAreas": "64fa37a047f8cad7e1fd",
+      "everythingNoAdapt": "117e5f8d362acf38c455"
     }
   }
 }

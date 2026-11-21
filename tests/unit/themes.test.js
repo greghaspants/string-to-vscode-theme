@@ -5,7 +5,11 @@ const E = require('../../src/engine.js');
 const { words } = require('../helpers/words.js');
 
 const HEX = /^#[0-9a-f]{6}$/;
-const SEEDS = ['food', 'foods', '', 'Hello World', 'a', 'b', 'ñandú', '🚀'].concat(words(1500));
+// Fixed odd names first, then every CSS color name, every Tailwind shade, color functions and a hex sweep (hue-controlled inputs), then 1,500 pseudo-random names.
+const TAILWIND_SEEDS = Object.entries(E.TAILWIND_COLORS).flatMap(([fam, shades]) => shades.map((_, i) => `${fam}-${E.TAILWIND_SHADES[i]}`));
+const COLOR_SEEDS = Object.keys(E.CSS_COLORS).concat(TAILWIND_SEEDS, Array.from({ length: 72 }, (_, i) => E.oklchToHex(0.62, 0.15, i * 5)),
+  ['rgb(255 99 71)', 'hsl(200 80% 40%)', 'hwb(120 10% 30%)', 'oklch(70% 0.15 300)', 'oklch(70% 0.4 150)', 'dark red', '#ff6347cc']);
+const SEEDS = ['food', 'foods', '', 'Hello World', 'a', 'b', 'ñandú', '🚀'].concat(COLOR_SEEDS, words(1500));
 const MODES = ['dark', 'light'];
 
 test('every contrast check passes for every generated theme', () => {
@@ -116,4 +120,34 @@ test('the frame is identical in the dark and light versions of every name', () =
     for (const k of E.FRAME_KEYS) if (d.colors[k] !== l.colors[k]) diffs.push(`${seed} ${k}`);
   }
   assert.deepEqual(diffs.slice(0, 5), []);
+});
+
+test('about a third of ordinary strings get a bright bar with dark text, spread over lightness, and the rest are dark with light text', () => {
+  const seeds = []; for (let i = 0; i < 3000; i++) seeds.push(`project-${i}`);
+  let bright = 0; const ls = [];
+  for (const s of seeds) {
+    const t = E.buildTheme(s, 'dark');
+    const L = E.hexToOklch(t.colors['statusBar.background']).L;
+    const fgL = E.hexToOklch(t.colors['statusBar.foreground']).L;
+    if (t.brightBar) { bright++; ls.push(L); assert.ok(fgL < L, `${s}: dark text`); assert.ok(L >= 0.6 && L <= 0.9, `${s}: L ${L}`); }
+    else { assert.ok(fgL > L, `${s}: light text`); assert.ok(L <= 0.47, `${s}: L ${L}`); }
+    assert.ok(E.contrast(t.colors['statusBar.foreground'], t.colors['statusBar.background']) >= 4.5, s);
+  }
+  const share = bright / seeds.length;
+  assert.ok(share > 0.3 && share < 0.4, `share ${share}`);
+  ls.sort((a, b) => a - b);
+  assert.ok(ls[Math.floor(ls.length * 0.1)] < 0.72 && ls[Math.floor(ls.length * 0.9)] > 0.82, 'lightness is spread, not a single value');
+});
+
+test('the bright or dark choice for a string does not depend on the mode, and does not change anything but the frame', () => {
+  const FRAME = new Set(E.FRAME_KEYS);
+  for (let i = 0; i < 200; i++) {
+    const s = `choice-${i}`;
+    const d = E.buildTheme(s, 'dark'), l = E.buildTheme(s, 'light');
+    assert.equal(d.brightBar, l.brightBar, s);
+    for (const k of E.FRAME_KEYS) assert.equal(d.colors[k], l.colors[k], `${s} ${k}`);
+    assert.equal(d.palette.sbBg, l.palette.sbBg);
+    // another string's theme with the same hue and mode has the same non-frame structure: same keys
+    assert.deepEqual(Object.keys(d.colors).filter((k) => FRAME.has(k)).sort(), E.FRAME_KEYS.slice().sort());
+  }
 });
