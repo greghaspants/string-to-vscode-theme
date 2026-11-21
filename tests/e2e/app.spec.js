@@ -1,6 +1,7 @@
 'use strict';
 const { test, expect } = require('@playwright/test');
 const E = require('../../src/engine.js');
+const { shuffleWords } = require('../helpers/words.js');
 
 const hash = (page) => page.evaluate(() => location.hash);
 const snippet = (page) => page.locator('#snippet').textContent();
@@ -16,9 +17,14 @@ test.beforeEach(async ({ page }) => {
 });
 
 test.describe('page basics', () => {
+  test('says plainly that it is not affiliated with VS Code', async ({ page }) => {
+    await expect(page.locator('#disclaimer')).toHaveText('Not affiliated with VS Code. This is just something a random person built for fun, and it is very vibe coded.');
+    await expect(page.locator('#disclaimer')).toBeVisible();
+  });
+
   test('has the right title and heading and is themed on first paint', async ({ page }) => {
     await expect(page).toHaveTitle('String-to-VS-Code-theme util');
-    await expect(page.locator('h1')).toHaveText('String-to-VS-Code-theme util');
+    await expect(page.locator('h1')).toHaveText('String-to-VS-Code*-theme util');
     expect(await snippet(page)).toMatch(/^"workbench\.colorCustomizations": \{/);
     // The default name "food" produces this accent, from the engine in src/.
     const accent = E.buildTheme('food', 'auto').colors['titleBar.activeBackground'];
@@ -111,12 +117,26 @@ test.describe('name, link and sharing', () => {
     await expect.poll(() => hash(page)).toBe('');
   });
 
-  test('"Try a random word" picks a new plain word', async ({ page }) => {
+  test('"Try a random word" picks a new word from the list', async ({ page }) => {
     await page.locator('#shuffle').click();
     const word = await page.locator('#seed').inputValue();
-    expect(word).toMatch(/^[a-z]+$/);
+    expect(shuffleWords()).toContain(word);
     expect(word).not.toBe('food');
-    await expect.poll(() => hash(page)).toBe('#' + word);
+    await expect.poll(() => hash(page)).toBe('#' + E.UrlState.encode(Object.assign({}, E.UrlState.DEFAULTS, { seed: word })));
+  });
+
+  test('"Try a random word" can reach every word in the list, and never repeats the current one', async ({ page }) => {
+    const list = shuffleWords();
+    let previous = 'food';
+    for (let i = 0; i < list.length; i++) {
+      // Make Math.random point at word i first, then walk the list, so the page's "not the current word" loop cannot spin forever.
+      await page.evaluate(([at, n]) => { let calls = 0; Math.random = () => (((at + calls++) % n) + 0.5) / n; }, [i, list.length]);
+      await page.locator('#shuffle').click();
+      await expect(page.locator('#seed')).toHaveValue(list[i]);
+      expect(list[i]).not.toBe(previous);
+      await expect.poll(() => hash(page)).toBe('#' + E.UrlState.encode(Object.assign({}, E.UrlState.DEFAULTS, { seed: list[i] })));
+      previous = list[i];
+    }
   });
 
   test('Copy puts exactly the snippet on the clipboard', async ({ page, context }) => {
@@ -328,5 +348,104 @@ test.describe('"Why?" popup on touch screens', () => {
     await expect(page.locator('#whyPop')).toBeVisible();
     await page.locator('h1').tap();
     await expect(page.locator('#whyPop')).toBeHidden();
+  });
+});
+
+test.describe('"VS-Code*" note', () => {
+  const NOTE = 'and other editors built on VS Code (results may vary)';
+
+  test('the asterisk sits right after "VS-Code" and the heading keeps its plain name', async ({ page }) => {
+    await expect(page.locator('h1')).toHaveText('String-to-VS-Code*-theme util');
+    await expect(page.getByRole('heading', { name: 'String-to-VS-Code-theme util' })).toBeVisible();
+    await expect(page.locator('#starBtn')).toHaveText('*');
+    await expect(page.locator('#starBtn')).toHaveAccessibleDescription(NOTE);
+    await expect(page.locator('#starTip')).toBeHidden();
+  });
+
+  test('opens on hover and closes when the pointer leaves', async ({ page }) => {
+    const tip = page.locator('#starTip');
+    await page.locator('#starBtn').hover();
+    await expect(tip).toBeVisible();
+    await expect(tip).toHaveText(NOTE);
+    await expect(page.locator('#starBtn')).toHaveAttribute('aria-expanded', 'true');
+    await page.mouse.move(1000, 600);
+    await expect(tip).toBeHidden();
+    await expect(page.locator('#starBtn')).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  test('a click while hovering keeps it open; leaving still closes it', async ({ page }) => {
+    const tip = page.locator('#starTip');
+    await page.locator('#starBtn').click();
+    await expect(tip).toBeVisible();
+    await page.mouse.move(1000, 600);
+    await expect(tip).toBeHidden();
+  });
+
+  test('opens with the keyboard, then closes by clicking elsewhere', async ({ page }) => {
+    const tip = page.locator('#starTip');
+    await page.locator('#starBtn').focus();
+    await page.keyboard.press('Enter');
+    await expect(tip).toBeVisible();
+    await page.mouse.click(1000, 600);
+    await expect(tip).toBeHidden();
+  });
+
+  test('a press elsewhere closes it even if the asterisk never had focus (Safari does not focus buttons)', async ({ page }) => {
+    const tip = page.locator('#starTip');
+    await page.locator('#starBtn').hover();
+    await expect(tip).toBeVisible();
+    await expect(page.locator('#starBtn')).not.toBeFocused();
+    // Dispatched, not clicked: moving the mouse away would close it through the hover path instead.
+    await page.evaluate(() => document.querySelector('.lede').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse' })));
+    await expect(tip).toBeHidden();
+  });
+
+  test('closes with Escape, and a second keyboard press toggles it', async ({ page }) => {
+    const tip = page.locator('#starTip');
+    await page.locator('#starBtn').focus();
+    await page.keyboard.press('Enter');
+    await expect(tip).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(tip).toBeHidden();
+    await page.keyboard.press('Enter');
+    await expect(tip).toBeVisible();
+    await page.keyboard.press('Enter');
+    await expect(tip).toBeHidden();
+  });
+
+  test('appears just under the asterisk', async ({ page }) => {
+    await page.locator('#starBtn').hover();
+    const [btn, tip] = await Promise.all([page.locator('#starBtn').boundingBox(), page.locator('#starTip').boundingBox()]);
+    expect(tip.y).toBeGreaterThanOrEqual(btn.y + btn.height - 1);
+    expect(tip.y).toBeLessThan(btn.y + btn.height + 30);
+    const mid = btn.x + btn.width / 2;
+    expect(mid).toBeGreaterThanOrEqual(tip.x);
+    expect(mid).toBeLessThanOrEqual(tip.x + tip.width);
+  });
+
+  test('showing it does not move anything on the page', async ({ page }) => {
+    const before = await page.locator('.studio').boundingBox();
+    await page.locator('#starBtn').hover();
+    await expect(page.locator('#starTip')).toBeVisible();
+    expect(await page.locator('.studio').boundingBox()).toEqual(before);
+  });
+});
+
+test.describe('"VS-Code*" note on touch screens', () => {
+  test.use({ hasTouch: true, isMobile: true, viewport: { width: 320, height: 640 } });
+
+  test('a tap opens it inside the screen, a second tap or a tap elsewhere closes it', async ({ page }) => {
+    const tip = page.locator('#starTip');
+    await page.locator('#starBtn').tap();
+    await expect(tip).toBeVisible();
+    const box = await tip.boundingBox();
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(320);
+    await page.locator('#starBtn').tap();
+    await expect(tip).toBeHidden();
+    await page.locator('#starBtn').tap();
+    await expect(tip).toBeVisible();
+    await page.locator('.lede').tap();
+    await expect(tip).toBeHidden();
   });
 });

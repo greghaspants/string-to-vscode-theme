@@ -14,4 +14,12 @@ function words(n, seed = 12345) {
   return out;
 }
 
-module.exports = { words };
+/* The names the "Try a random word" button can pick, read straight from the page source so the tests cannot drift from it. */
+function shuffleWords() {
+  const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '../../src/template.html'), 'utf8');
+  const m = /var WORDS = (\[[^\]]*\]);/.exec(src);
+  if (!m) throw new Error('WORDS list not found in src/template.html');
+  return JSON.parse(m[1].replace(/'/g, '"'));
+}
+
+module.exports = { words, shuffleWords };

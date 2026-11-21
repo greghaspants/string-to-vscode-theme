@@ -4,6 +4,8 @@ Type a project name, get a VS Code theme as a `settings.json` snippet. The same 
 
 It is one self-contained web page: no framework, no server, no external fonts or scripts. It is built to `dist/index.html` and published with GitHub Pages.
 
+Not affiliated with VS Code. This is just something a random person built for fun, and it is very vibe coded. The asterisk in the page title says the same snippet may also work in other editors built on VS Code, with results that may vary.
+
 Live site: `https://<your-user>.github.io/<your-repo>/` (appears after the first successful deploy, see [Publishing](#publishing-to-github-pages)).
 
 ## What it does
@@ -87,7 +89,7 @@ Because everything is plain arithmetic on the name, the output is the same on ev
 │   ├── serve.js             tiny static server for dist/, used by Playwright
 │   └── update-golden.js     regenerates tests/fixtures/golden.json
 ├── tests/
-│   ├── unit/                node:test: themes, snippets, URL codec, golden snapshot
+│   ├── unit/                node:test: themes, snippets, URL codec, random-word list, golden snapshot
 │   ├── e2e/                 Playwright: app behavior, layout, post-deploy smoke test
 │   ├── helpers/             shared test code (word generator, golden computation)
 │   └── fixtures/golden.json pinned output for 40 names
@@ -157,8 +159,9 @@ CHROME_PATH=/usr/bin/google-chrome pnpm exec playwright test   # use an installe
 | `tests/unit/themes.test.js` | Every contrast check passes for 3,000+ themes (1,500 names, dark and light). All colors are `#rrggbb`. Determinism. Color-blind separation floors. Option groups exist and do not overlap. The frame is identical in dark and light. |
 | `tests/unit/snippet.test.js` | Each option adds exactly its keys and nothing else, with and without matching. Scoped `[*Dark*]` and `[*Light*]` structure. The snippet does not depend on the preview mode. Brace and base-theme switches. |
 | `tests/unit/url.test.js` | The URL codec: defaults, readable tokens, base32 names, reserved names, 2,000 random round-trips, damaged links. |
+| `tests/unit/words.test.js` | The "Try a random word" list (read from `src/template.html`): unique, clean, includes the coffee names, every word passes every contrast target and survives the URL round trip. |
 | `tests/unit/golden.test.js` | A snapshot of 40 names (colors, token rules, three snippet variants) so a code change cannot silently recolor existing windows. |
-| `tests/e2e/app.spec.js` | The page in a real browser: typing, links, every option, locking under "Color everything", light and dark controls, color-blind filters, Copy, the "Why?" popup (mouse, keyboard, touch), no network requests beyond the page, no console errors. |
+| `tests/e2e/app.spec.js` | The page in a real browser: typing, links, every option, locking under "Color everything", light and dark controls, color-blind filters, Copy, the "Why?" popup and the "VS-Code*" note (mouse, keyboard, touch), the not-affiliated note, every "Try a random word" pick, no network requests beyond the page, no console errors. |
 | `tests/e2e/layout.spec.js` | Two-column layout with the pinned preview, stacked layout on tablet and phone, no horizontal scrolling from 320 px to 1920 px. |
 | `tests/e2e/smoke.spec.js` | Runs against a live URL after deploy. See below. |
 
@@ -174,6 +177,8 @@ push to main ──► verify ──► deploy ──► smoke
 - **verify** ("Build and verify"): checks the Node and pnpm versions, installs with `--frozen-lockfile`, runs the unit tests, builds with `BUILD_ID` set to the commit SHA, installs Chromium, runs the Playwright suite, uploads the HTML report, and (on main only) packages `dist/` for Pages. The report is uploaded even when tests fail.
 - **deploy**: runs only on main, only if `verify` passed (`needs: verify`). It publishes the exact `dist/` that was just tested, never a rebuild.
 - **smoke**: runs only after `deploy`. It opens the live URL and checks that the page serves the build that was just deployed (`<meta name="build">` equals the commit SHA, polled for up to two minutes while Pages catches up), that it loads with no errors or foreign requests, and that it produces exactly the same snippet as the engine in `src/`. That last check proves "same name, same colors" in production, not only in source.
+
+Every action in the workflow is pinned to a full commit SHA, with the release version in a comment (`uses: actions/checkout@<sha> # v7.0.1`), so a moved or compromised tag cannot change what runs. Dependabot opens a weekly PR that updates the SHA and the comment together, and that PR goes through the same `verify` job as any other.
 
 ### Publishing to GitHub Pages
 

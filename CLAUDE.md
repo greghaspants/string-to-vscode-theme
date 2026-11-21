@@ -59,6 +59,8 @@ State lives in one `state` object. Pipeline: `update()` calls `render()` then `w
 
 "Color everything" implies the other options: they show ticked and locked (`syncOptions`), but their own values are kept in `state` for when it is unticked.
 
+The title has an asterisk button after "VS-Code" (`#starBtn`) whose note, "and other editors built on VS Code (results may vary)" (`#starTip`), lives outside the `<h1>` and is placed by `initStar()` under the asterisk, clamped to the screen. It opens on mouse hover or on click/tap/Enter, and closes on pointer leave, a press elsewhere, blur or Esc. The `<h1>` text is therefore `String-to-VS-Code*-theme util` (tests assert that); the `<title>` and the heading's accessible name stay `String-to-VS-Code-theme util`.
+
 Exactly one brightness control is shown at a time: with matching on, **Light mode / Dark mode** (preview only); with matching off, **Theme brightness** (shapes the snippet). Do not show both.
 
 ### `scripts/build.js`
@@ -93,7 +95,7 @@ Say a new group `foo`:
 
 ## CI/CD
 
-`.github/workflows/ci.yml`: `verify` (all branches and PRs) then `deploy` and `smoke` (main only). The deployed artifact is the `dist/` that passed verification, built once with `BUILD_ID=$GITHUB_SHA`. Smoke compares the live `<meta name="build">` to that SHA. Pinned versions: Node from `.node-version`, pnpm from `packageManager`; do not also set `version:` on `pnpm/action-setup` (it errors when the two disagree). Actions are pinned to major versions and kept current by Dependabot.
+`.github/workflows/ci.yml`: `verify` (all branches and PRs) then `deploy` and `smoke` (main only). The deployed artifact is the `dist/` that passed verification, built once with `BUILD_ID=$GITHUB_SHA`. Smoke compares the live `<meta name="build">` to that SHA. Pinned versions: Node from `.node-version`, pnpm from `packageManager`; do not also set `version:` on `pnpm/action-setup` (it errors when the two disagree). Every action is pinned to a full commit SHA with its release version in a trailing comment (`uses: owner/name@<40-hex-sha> # v1.2.3`), and Dependabot bumps both together. Never replace a SHA with a tag; to change one, look up the commit the release tag points to (`git ls-remote --tags https://github.com/<owner>/<name>.git`, taking the peeled `^{}` line for annotated tags).
 
 When you change the Node or pnpm version, change it in `.node-version`, `package.json` (`engines` and `packageManager`) and `README.md`, then run `pnpm install` to refresh the lockfile.
 

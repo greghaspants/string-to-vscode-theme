@@ -37,7 +37,7 @@ test('loads cleanly and produces the same colors as the source engine', async ({
   page.on('request', (r) => { if (!r.url().startsWith(origin) && !/^(data|blob):/.test(r.url())) foreign.push(r.url()); });
 
   await page.goto('./#tidepool--editor--panel--braces');
-  await expect(page.locator('h1')).toHaveText('String-to-VS-Code-theme util');
+  await expect(page.locator('h1')).toHaveText('String-to-VS-Code*-theme util');
   await expect(page.locator('#seed')).toHaveValue('tidepool');
 
   const live = JSON.parse(await page.locator('#snippet').textContent());
