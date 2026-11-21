@@ -1,0 +1,25 @@
+{
+  "name": "string-to-vscode-theme",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Turn a project name into a deterministic VS Code theme settings.json snippet, as one self-contained web page.",
+  "engines": {
+    "node": "24.22.3",
+    "pnpm": "12.18.0"
+  },
+  "packageManager": "pnpm@12.18.0",
+  "scripts": {
+    "build": "node scripts/build.js",
+    "serve": "node scripts/serve.js",
+    "test": "pnpm test:unit && pnpm test:e2e",
+    "test:unit": "node --test \"tests/unit/*.test.js\"",
+    "test:e2e": "pnpm build && playwright test",
+    "test:smoke": "playwright test tests/e2e/smoke.spec.js",
+    "verify": "pnpm test",
+    "golden:update": "node scripts/update-golden.js",
+    "playwright:install": "playwright install --with-deps chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.1"
+  }
+}

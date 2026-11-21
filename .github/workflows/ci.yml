@@ -1,0 +1,137 @@
+name: CI and deploy
+
+# Pull requests and pushes are verified. Only a push to main that passes verification is deployed,
+# and the deployed site is then smoke-tested.
+#
+#   verify  ->  deploy  ->  smoke
+#   (PRs and main)  (main only)  (main only, against the live URL)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  verify:
+    name: Build and verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      # pnpm's version comes from "packageManager" in package.json (pnpm@12.18.0). Do not also set `version:` here.
+      - uses: pnpm/action-setup@v6
+
+      # Node's version comes from .node-version (24.22.3).
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Check tool versions
+        run: |
+          echo "node $(node -v), pnpm $(pnpm -v)"
+          test "$(node -v)" = "v$(cat .node-version)"
+          test "$(pnpm -v)" = "$(node -p "require('./package.json').packageManager.split('@')[1]")"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Unit tests (theme engine, snippets, URL codec, golden snapshot)
+        run: pnpm test:unit
+
+      - name: Build
+        run: pnpm build
+        env:
+          BUILD_ID: ${{ github.sha }}
+
+      - name: Install Playwright's Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: End-to-end tests
+        run: pnpm exec playwright test
+
+      - name: Upload the Playwright report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Upload traces and screenshots from failures
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-test-results
+          path: test-results/
+          retention-days: 14
+          if-no-files-found: ignore
+
+      # The exact dist/ that just passed is what gets deployed: it is built once and never rebuilt.
+      - name: Package the site for GitHub Pages
+        if: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: verify
+    if: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    outputs:
+      page_url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v5
+
+  smoke:
+    name: Smoke test the live site
+    needs: deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+
+      - name: Smoke test ${{ needs.deploy.outputs.page_url }}
+        run: pnpm exec playwright test tests/e2e/smoke.spec.js
+        env:
+          BASE_URL: ${{ needs.deploy.outputs.page_url }}
+          EXPECT_BUILD: ${{ github.sha }}
+
+      - name: Upload the Playwright report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: smoke-report
+          path: playwright-report/
+          retention-days: 14
+          if-no-files-found: ignore

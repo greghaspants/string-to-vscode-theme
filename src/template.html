@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="build" content="__BUILD_ID__">
+<!-- An inline icon, so browsers never request /favicon.ico (a 404 there would be a console error). -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%239a1e55'/%3E%3Crect x='7' y='7' width='25' height='18' fill='%231e1216'/%3E%3C/svg%3E">
+<title>String-to-VS-Code-theme util</title>
+<style>
+/* Design plan
+   The page wears the theme it generates, so it is one deliberate single-theme world:
+   every color below is set by script from the engine's checked palette.
+   Tokens: --act (page), --bg (panels), --side (inset), --fg, --dim, --accent, --border,
+           --inputborder (3:1 edges for controls), --sel, --btn.
+   Type: system fonts only. One sans stack (San Francisco, Segoe UI, Roboto, then sans-serif) with heavy weights for headings, and the system monospace for code.
+   Layout: headline and seed field, then preview beside snippet, then the accessibility report. */
+:root {
+/*ROOT_VARS*/
+  --sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+* { box-sizing: border-box; }
+html { color-scheme: dark; background: var(--act); }
+body {
+  margin: 0; background: var(--act); color: var(--fg);
+  font: 400 16px/1.55 var(--sans);
+}
+@media (prefers-reduced-motion: no-preference) {
+  body, .panel, .seed, .snip, .vsc, .btn, .whybox { transition: background-color .25s, color .25s, border-color .25s; }
+}
+.page { max-width: 1240px; margin: 0 auto; padding: 32px 20px 72px; display: flex; flex-direction: column; gap: 32px; }
+h1, h2, h3 { font-family: var(--sans); margin: 0; text-wrap: balance; }
+h1 { font-weight: 800; font-size: clamp(1.8rem, 4.8vw, 2.8rem); line-height: 1.05; letter-spacing: -.02em; }
+h2 { font-weight: 700; font-size: 1.35rem; line-height: 1.2; letter-spacing: -.01em; }
+p { margin: 0; }
+code, pre, .mono { font-family: var(--mono); }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* hero */
+.hero { display: flex; flex-direction: column; gap: 22px; }
+.lede { color: var(--dim); max-width: 60ch; }
+.lederow { position: relative; align-self: flex-start; max-width: 100%; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 10px; }
+.whybtn { background: none; border: 0; padding: 2px 4px; margin: -2px -4px; border-radius: 4px; cursor: pointer; font: 600 1rem/1.5 var(--sans); color: var(--accent); text-decoration: underline dotted; text-underline-offset: 4px; }
+.whybtn:hover, .whybtn[aria-expanded="true"] { color: var(--fg); }
+.whypop { position: absolute; left: 0; top: 100%; z-index: 30; padding-top: 10px; width: min(460px, calc(100vw - 2.5rem)); }
+.whypop:focus { outline: none; }
+.whybox { background: var(--bg); border: 1px solid var(--inputborder); border-radius: 12px; padding: 16px 18px 18px; box-shadow: 0 18px 40px -18px rgba(0, 0, 0, .6); }
+.why { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); }
+.why h2 { margin: 0 0 -4px; font-family: var(--sans); letter-spacing: .06em; }
+.why div { border-top: 2px solid var(--accent); padding-top: 10px; }
+.why b { display: block; font: 700 1.05rem/1.3 var(--sans); letter-spacing: -.005em; margin-bottom: 4px; }
+.why p { color: var(--dim); font-size: .92rem; line-height: 1.5; }
+.seed {
+  width: 100%; min-width: 0; padding: 14px 18px; border-radius: 12px;
+  background: var(--bg); color: var(--fg); border: 2px solid var(--inputborder);
+  font: 500 clamp(1.4rem, 4.6vw, 2.4rem)/1.2 var(--mono);
+}
+.seed::placeholder { color: var(--dim); opacity: 1; }
+.seed:focus-visible { border-color: var(--accent); outline: 3px solid var(--accent); outline-offset: 2px; }
+.seedrow { display: flex; flex-wrap: wrap; gap: 12px; align-items: stretch; }
+.seedrow .seed { flex: 1 1 15rem; width: auto; }
+.seedrow .btn { flex: none; }
+.row { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; }
+.btn {
+  background: var(--btn); color: var(--btnfg); border: 0; border-radius: 8px; padding: 10px 18px; cursor: pointer;
+  font: 600 .95rem/1.2 var(--sans);
+}
+.btn:hover { background: var(--btnhover); }
+.btn.ghost { background: transparent; color: var(--fg); border: 1px solid var(--inputborder); }
+.btn.ghost:hover { background: var(--hover); }
+fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+legend { padding: 0; }
+.seg { display: inline-flex; flex-wrap: wrap; border: 1px solid var(--inputborder); border-radius: 9px; overflow: hidden; }
+.seg label { position: relative; display: block; cursor: pointer; }
+.seg input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.seg span { display: block; padding: 8px 14px; color: var(--dim); font-weight: 500; font-size: .92rem; }
+.seg input:checked + span { background: var(--sel); color: var(--fg); }
+.seg input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: -3px; }
+.fieldlabel { font-size: .8rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); margin-bottom: 6px; display: block; }
+
+.palette { display: flex; flex-direction: column; gap: 8px; }
+.palette .fieldlabel { margin: 0; }
+.swatches { display: flex; flex-wrap: wrap; gap: 8px 18px; }
+.sw { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.sw b { display: block; flex: none; width: 18px; height: 18px; border-radius: 5px; border: 1px solid var(--inputborder); }
+.sw code { font-size: .78rem; color: var(--fg); }
+.sw small { font-size: .78rem; color: var(--dim); line-height: 1.2; }
+
+/* panels and layout */
+.panel { background: var(--bg); border: 1px solid var(--border); border-radius: 14px; padding: 20px; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.head { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; }
+/* Narrow screens stack: options, preview, snippet. Wide screens: options and snippet on the left, preview pinned on the right. */
+.studio { display: grid; gap: 24px; align-items: start; grid-template-columns: minmax(0, 1fr); grid-template-areas: "controls" "preview" "snippet"; }
+.controls { grid-area: controls; display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.previewpanel { grid-area: preview; }
+.snippetpanel { grid-area: snippet; }
+@media (min-width: 1100px) {
+  .studio { grid-template-columns: minmax(380px, 460px) minmax(0, 1fr); grid-template-areas: "controls preview" "snippet preview"; grid-template-rows: auto 1fr; }
+  .previewpanel { position: sticky; top: 16px; }
+  .controls .seed { font-size: 1.6rem; padding: 12px 14px; }
+  .controls .row.top { flex-direction: column; align-items: stretch; gap: 20px; }
+}
+.note { color: var(--dim); font-size: .88rem; max-width: 70ch; }
+.note b { color: var(--fg); font-weight: 600; }
+
+/* VS Code mock */
+.vscwrap { overflow-x: auto; border-radius: 10px; }
+.vsc {
+  display: grid; grid-template-rows: auto 1fr auto; min-width: 560px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
+  background: var(--bg); color: var(--fg); font: 400 12.5px/20px var(--mono);
+}
+.vsc .title { background: var(--sb); color: var(--sbfg); display: flex; align-items: center; gap: 8px; padding: 4px 12px; font: 400 12px/18px var(--sans); }
+.vsc .title .dots { display: flex; gap: 6px; }
+.vsc .title .dots i { width: 10px; height: 10px; border-radius: 50%; background: var(--sbdim); display: block; }
+.vsc .title span.ttl { flex: 1; text-align: center; }
+.vsc .body { display: grid; grid-template-columns: 44px 176px minmax(0, 1fr); min-height: 0; }
+.vsc .actbar { background: var(--sb); display: flex; flex-direction: column; align-items: center; padding-top: 6px; gap: 2px; }
+.vsc .actbar div { position: relative; width: 44px; height: 40px; display: grid; place-items: center; color: var(--sbdim); }
+.vsc .actbar div.on { color: var(--sbfg); box-shadow: inset 2px 0 0 var(--sbfg); }
+.vsc .actbar svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.vsc .badge { position: absolute; right: 5px; top: 5px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: var(--sbfg); color: var(--sb); font: 600 10px/16px var(--sans); text-align: center; }
+.vsc .side { background: var(--side); border-right: 1px solid var(--border); font: 400 13px/22px var(--sans); display: flex; flex-direction: column; }
+.vsc .side h4 { margin: 0; padding: 6px 14px; font: 600 11px/20px var(--sans); letter-spacing: .08em; color: var(--fg); }
+.vsc .side .sec { background: var(--act); color: var(--fg); font-weight: 600; font-size: 11px; letter-spacing: .06em; padding: 2px 14px; }
+.vsc .side .item { padding: 0 14px 0 22px; color: var(--fg); white-space: nowrap; }
+.vsc .side .item.hov { background: var(--hover); }
+.vsc .side .item.sel { background: var(--sel); }
+.vsc .side .item.dim { color: var(--dim); }
+.vsc .main { display: grid; grid-template-rows: auto auto 1fr auto; min-width: 0; }
+.vsc .tabs { display: flex; background: var(--side); border-bottom: 1px solid var(--border); font: 400 13px/34px var(--sans); }
+.vsc .tab { padding: 0 16px; color: var(--dim); background: var(--side); border-right: 1px solid var(--border); }
+.vsc .tab.on { color: var(--fg); background: var(--bg); box-shadow: inset 0 2px 0 var(--accent); }
+.vsc .crumbs { padding: 2px 16px; color: var(--dim); font: 400 12px/20px var(--sans); background: var(--bg); }
+.vsc .crumbs b { color: var(--fg); font-weight: 400; }
+.vsc .editor { padding: 6px 0; overflow-x: auto; background: var(--bg); }
+.vsc .ln { display: flex; white-space: pre; min-width: max-content; }
+.vsc .ln.cur { background: var(--hl); }
+.vsc .no { width: 44px; flex: none; text-align: right; padding-right: 18px; color: var(--dim); }
+.vsc .ln.cur .no { color: var(--fg); }
+.vsc .k { color: var(--tk-keyword); } .vsc .s { color: var(--tk-string); } .vsc .n { color: var(--tk-number); }
+.vsc .f { color: var(--tk-function); } .vsc .t { color: var(--tk-type); } .vsc .p { color: var(--tk-property); }
+.vsc .v { color: var(--var, var(--fg)); } .vsc .x { color: var(--punct); } .vsc .c { color: var(--cmt, var(--dim)); font-style: italic; }
+.vsc .sel { background: var(--sel); } .vsc .find { background: var(--find); } .vsc .alt { background: var(--sel); }
+.vsc .caret { display: inline-block; width: 2px; height: 16px; margin: 2px 0 0 1px; background: var(--accent); vertical-align: top; }
+.vsc .panelarea { border-top: 1px solid var(--border); background: var(--bg); }
+.vsc .ptabs { display: flex; gap: 18px; padding: 0 16px; font: 400 11px/26px var(--sans); letter-spacing: .06em; color: var(--dim); }
+.vsc .ptabs .on { color: var(--fg); box-shadow: inset 0 -1px 0 var(--accent); }
+.vsc .term { padding: 4px 16px 10px; color: var(--fg); white-space: pre; overflow-x: auto; }
+.vsc .blocks { display: flex; gap: 2px; margin-top: 4px; }
+.vsc .blocks i { display: block; width: 26px; height: 14px; }
+.vsc .status { display: flex; justify-content: space-between; gap: 12px; padding: 0 4px; background: var(--sb); color: var(--sbfg); font: 400 12px/24px var(--sans); }
+.vsc .status > div { display: flex; }
+.vsc .status span { padding: 0 8px; }
+/* hover states, using the same colors the snippet sets */
+.vsc, .vsc * { cursor: default; }
+.vsc .side .item:hover { background: var(--hover); }
+.vsc .side .item.sel:hover { background: var(--sel); }
+.vsc .tab:not(.on):hover { background: var(--hover); color: var(--fg); }
+.vsc .actbar div:hover { color: var(--sbfg); background: var(--sbhover); }
+.vsc .status span:hover { background: var(--sbhover); }
+.vsc .status span:active { background: var(--sbactive); }
+.vsc .ln :is(.k, .s, .n, .f, .t, .p, .v):not(.sel):not(.find):not(.alt):hover { background: var(--inactive); }
+
+/* snippet */
+.opts { display: flex; flex-direction: column; gap: 8px; }
+.opts label { display: flex; gap: 10px; align-items: flex-start; font-size: .92rem; cursor: pointer; }
+.opts input { margin: 4px 0 0; width: 16px; height: 16px; accent-color: var(--accent); flex: none; }
+.opts label span b { font-weight: 600; }
+.opts label span small { display: block; color: var(--dim); font-size: .82rem; line-height: 1.4; margin-top: 2px; }
+.opts label.off { cursor: not-allowed; }
+.opts label.off span { color: var(--dim); }
+.what { max-width: 56ch; }
+.what .note { margin-bottom: 10px; }
+.modehint { margin-top: 8px; max-width: 40ch; }
+.row.top { align-items: flex-start; gap: 16px 40px; }
+.bright { max-width: 46ch; }
+.studio > .panel { border-color: var(--inputborder); box-shadow: 0 1px 0 var(--border), 0 12px 32px -20px rgba(0, 0, 0, .55); }
+.bright .adaptopt { margin-bottom: 12px; }
+.stack { display: flex; flex-direction: column; gap: 16px; }
+[hidden] { display: none !important; }
+.snip { margin: 0; max-height: 440px; overflow: auto; background: var(--side); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; font-size: 12.5px; line-height: 1.6; color: var(--fg); tab-size: 2; }
+.snip .j-key { color: var(--tk-property); } .snip .j-str { color: var(--tk-string); } .snip .j-punct { color: var(--punct); }
+.copyrow { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.copied { font-size: .9rem; color: var(--fg); min-height: 1.4em; }
+.steps { margin: 0; padding-left: 1.2em; color: var(--dim); font-size: .9rem; display: flex; flex-direction: column; gap: 4px; }
+.steps b { color: var(--fg); font-weight: 600; }
+
+/* report */
+.summary { display: flex; flex-wrap: wrap; gap: 8px 28px; align-items: baseline; }
+.big { font: 800 clamp(2rem, 5vw, 3rem)/1 var(--sans); letter-spacing: -.02em; }
+.groups { display: grid; gap: 22px 32px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 900px) { .groups { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.tblwrap { overflow-x: auto; position: relative; }
+table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+caption { text-align: left; font: 700 1rem/1.3 var(--sans); padding-bottom: 6px; }
+th { text-align: left; font-weight: 600; color: var(--dim); font-size: .78rem; letter-spacing: .05em; text-transform: uppercase; padding: 4px 8px; }
+td { padding: 6px 8px; border-top: 1px solid var(--border); vertical-align: middle; }
+td small { display: block; color: var(--dim); font-size: .78rem; line-height: 1.3; }
+td.num, th.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.aa { display: inline-grid; place-items: center; width: 40px; height: 28px; border-radius: 6px; border: 1px solid var(--border); font: 600 .85rem/1 var(--sans); }
+.aa u { display: block; width: 18px; height: 10px; border-radius: 3px; text-decoration: none; }
+.pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: .8rem; font-weight: 600; white-space: nowrap; border: 1px solid var(--inputborder); }
+.pill.ok { background: var(--hover); color: var(--fg); }
+.pill.bad { background: var(--bg); color: var(--err); border-color: var(--err); }
+.cvd { display: grid; gap: 14px; }
+.cvdrow { display: grid; gap: 6px 16px; grid-template-columns: minmax(0, 1fr); align-items: center; padding: 10px 0; border-top: 1px solid var(--border); }
+@media (min-width: 760px) { .cvdrow { grid-template-columns: 200px 240px minmax(0, 1fr); } }
+.strip { display: flex; gap: 4px; }
+.strip i { display: block; flex: 1; height: 26px; border-radius: 5px; border: 1px solid var(--border); }
+.cvdrow small { color: var(--dim); display: block; font-size: .8rem; line-height: 1.35; }
+.foot { color: var(--dim); font-size: .85rem; display: flex; flex-direction: column; gap: 6px; max-width: 80ch; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs id="filters"></defs></svg>
+<div class="page">
+
+  <header class="hero">
+    <h1>String-to-<span style="white-space:nowrap">VS-Code</span>-theme util</h1>
+    <div class="lederow" id="whyWrap">
+      <p class="lede">The same name always gives the same colors.</p>
+      <button class="whybtn" id="whyBtn" type="button" aria-expanded="false" aria-controls="whyPop">Why?</button>
+      <div class="whypop" id="whyPop" role="region" aria-labelledby="whyHead" tabindex="-1" hidden>
+        <div class="whybox why">
+          <h2 id="whyHead" class="fieldlabel">Why a string?</h2>
+          <div><b>One name, one color, everywhere</b><p>Basing it on a name means less to think about: no colors to pick and nothing to sync. The same name gives the same hex values on every machine, and the palette below works in any editor.</p></div>
+          <div><b>Know your project at a glance</b><p>Title bar, left strip and status bar share one color, so each window says which project it is.</p></div>
+          <div><b>Switch windows faster</b><p>With many projects open, pick the right window by its color instead of reading titles.</p></div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main style="display:contents">
+    <div class="studio">
+      <section class="controls" aria-label="Project name and options">
+    <div>
+      <label for="seed" class="fieldlabel">Project name (or any text)</label>
+      <div class="seedrow">
+        <input id="seed" class="seed" type="text" value="food" maxlength="200" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="my-project">
+        <button class="btn ghost" id="shuffle" type="button">Try a random word</button>
+      </div>
+    </div>
+    <div class="row top">
+      <fieldset class="bright">
+        <legend class="fieldlabel">Light and dark</legend>
+        <div class="opts adaptopt">
+          <label for="optAdapt"><input type="checkbox" id="optAdapt" checked><span><b>Match light and dark themes</b><small>The title bar, activity bar and status bar stay the same. Everything else gets a dark and a light version that switches with your VS Code theme.</small></span></label>
+        </div>
+        <div id="brightBox" hidden>
+          <span class="fieldlabel" id="modeLabel">Theme brightness</span>
+          <div class="seg" id="modeSeg" role="radiogroup" aria-labelledby="modeLabel">
+            <label><input type="radio" name="mode" value="auto" checked><span>Auto</span></label>
+            <label><input type="radio" name="mode" value="dark"><span>Dark</span></label>
+            <label><input type="radio" name="mode" value="light"><span>Light</span></label>
+          </div>
+          <p class="note modehint" id="modeHint"></p>
+        </div>
+      </fieldset>
+      <fieldset class="what">
+        <legend class="fieldlabel">What to color</legend>
+        <p class="note">The title bar, activity bar and status bar are always colored.</p>
+        <div class="opts">
+          <label for="optExplorer"><input type="checkbox" id="optExplorer" checked><span><b>Color the side bars</b><small>Explorer and Search on the left, and the Chat bar on the right</small></span></label>
+          <label for="optEditor"><input type="checkbox" id="optEditor"><span><b>Color the coding palette</b><small>Editor background, tabs and syntax colors</small></span></label>
+          <label for="optPanel"><input type="checkbox" id="optPanel"><span><b>Color the panel and terminal</b><small>Terminal, Problems and Output, with matching terminal colors</small></span></label>
+          <label for="optEvery"><input type="checkbox" id="optEvery"><span><b>Color everything</b><small id="everSub">Also buttons, inputs, command palette, links and scrollbars</small></span></label>
+        </div>
+      </fieldset>
+    </div>
+    <p class="note">These settings are kept in the page link, after the #, so you can bookmark or share any setup.</p>
+      </section>
+
+      <section class="panel previewpanel" aria-label="Preview">
+        <div class="head">
+          <h2>Preview</h2>
+          <fieldset id="pmodeBox">
+            <legend class="sr">Preview mode</legend>
+            <div class="seg" id="pmodeSeg">
+              <label><input type="radio" name="pmode" value="light"><span>Light mode</span></label>
+              <label><input type="radio" name="pmode" value="dark" checked><span>Dark mode</span></label>
+            </div>
+          </fieldset>
+        </div>
+        <fieldset>
+          <legend class="sr">Preview as</legend>
+          <div class="seg" id="visionSeg">
+            <label><input type="radio" name="vision" value="normal" checked><span>Normal</span></label>
+            <label><input type="radio" name="vision" value="protan"><span>Protanopia</span></label>
+            <label><input type="radio" name="vision" value="deutan"><span>Deuteranopia</span></label>
+            <label><input type="radio" name="vision" value="tritan"><span>Tritanopia</span></label>
+            <label><input type="radio" name="vision" value="gray"><span>Grayscale</span></label>
+          </div>
+        </fieldset>
+        <div class="vscwrap" id="vscwrap"><div class="vsc" id="vsc" role="img" aria-label="Preview of a VS Code window using the generated theme"></div></div>
+        <p class="note">Hover over the Explorer rows, tabs, activity icons, status bar items and words in the code to see their hover colors.</p>
+        <p class="note" id="visionNote">The preview shows the exact hex values in the snippet, in sRGB. Pick a vision type above to see roughly how the theme looks to someone with that color-vision deficiency.</p>
+      </section>
+
+      <section class="panel snippetpanel" aria-label="settings.json">
+        <h2>settings.json</h2>
+        <div class="opts">
+          <label><input type="checkbox" id="optBase" checked><span id="optBaseLabel">Set the base theme to Default Dark Modern</span></label>
+          <label><input type="checkbox" id="optSem" checked><span id="optSemLabel">Also color semantic tokens (TypeScript, JavaScript, Java)</span></label>
+          <label><input type="checkbox" id="optBraces"><span>Include outer { } (for an empty settings.json)</span></label>
+        </div>
+        <pre class="snip" id="snippet" tabindex="0" aria-label="settings.json snippet"></pre>
+        <div class="copyrow">
+          <button class="btn" id="copy" type="button">Copy snippet</button>
+          <span class="copied" id="copied" role="status" aria-live="polite"></span>
+        </div>
+        <ol class="steps">
+          <li>Open the project folder in VS Code, then run <b>Preferences: Open Workspace Settings (JSON)</b> from the Command Palette. This opens <b>.vscode/settings.json</b> and creates it if it doesn't exist.</li>
+          <li>Paste the snippet inside the existing outer braces, or tick the braces option for an empty file. In a <b>.code-workspace</b> file, paste it inside the <b>"settings"</b> object.</li>
+          <li>Save. The colors apply to this project's window only.</li>
+        </ol>
+        <p class="note" id="noteAdapt" hidden>The dark colors apply to any theme with “Dark” in its name, and the light colors to any theme with “Light” in its name. With any other theme you get only the title bar, activity bar and status bar.</p>
+        <p class="note" id="noteLayer" hidden>The syntax and editor colors layer on top of your base theme. Anything the base theme styles with a more specific scope than the ones listed can still show its own color, so Default Dark Modern and Default Light Modern give the most predictable result.</p>
+        <p class="note" id="noteFrame">This snippet colors only the parts you ticked, each with its own text colors, so it works over any theme you already use. It does not change your base theme.</p>
+      </section>
+    </div>
+
+    <section class="palette" aria-labelledby="paletteHead">
+      <h2 class="fieldlabel" id="paletteHead">Palette</h2>
+      <div class="swatches" id="swatches"></div>
+    </section>
+
+    <section class="panel" aria-labelledby="reportHead">
+      <div class="head"><h2 id="reportHead">Accessibility report</h2></div>
+      <div class="summary" id="summary"></div>
+      <div class="groups" id="groups"></div>
+      <div class="stack" id="cvdSection">
+        <h2>Color-blind separation</h2>
+        <p class="note">Each row shows the six syntax colors and plain text as that viewer would see them, plus the two that sit closest together. Distance is measured in OKLab; around 0.05 and above is easy to tell apart, and below 0.03 is tight. Syntax colors also differ in brightness, and comments are italic.</p>
+        <div class="cvd" id="cvd"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <p>Colors are designed in OKLCH, then gamut-mapped to sRGB hex, the only format VS Code theme colors accept. Wide-gamut and HDR colors cannot be expressed in a theme.</p>
+    <p>Contrast uses the WCAG 2 ratio on the final hex values. Targets: 7:1 for body text, 4.5:1 for other text, 3:1 for controls and indicators.</p>
+  </footer>
+</div>
+
+<!--ENGINE-->
+
+<script>
+(function () {
+  'use strict';
+  var E = ThemeEngine;
+  var U = E.UrlState;
+  var $ = function (id) { return document.getElementById(id); };
+  var state = { seed: 'food', mode: 'auto', vision: 'normal', base: true, sem: true, braces: false, explorer: true, editor: false, panel: false, every: false, adapt: true };
+  // Which parts of the preview and report are themed. The frame is always on.
+  function scope() { return { explorer: state.every || state.explorer, editor: state.every || state.editor, panel: state.every || state.panel, all: state.every }; }
+  var REGIONS = { explorer: ['.side'], editor: ['.tabs', '.crumbs', '.editor'], panel: ['.panelarea'] };
+  /* Rough stand-in for VS Code's Default Dark/Light Modern, drawn in the preview for the
+     areas a frame-only snippet leaves alone. */
+  var DEFAULT_LOOK = {
+    dark: {
+      '--bg': '#1f1f1f', '--side': '#181818', '--act': '#181818', '--hl': '#262626', '--sel': '#264f78', '--find': '#515c6a',
+      '--border': '#2b2b2b', '--fg': '#cccccc', '--dim': '#858585', '--punct': '#cccccc', '--accent': '#0078d4',
+      '--hover': '#2a2d2e', '--inactive': '#2c3b4c', '--var': '#9cdcfe', '--cmt': '#6a9955',
+      '--tk-keyword': '#569cd6', '--tk-string': '#ce9178', '--tk-number': '#b5cea8', '--tk-function': '#dcdcaa', '--tk-type': '#4ec9b0', '--tk-property': '#9cdcfe',
+      '--ansi-black': '#000000', '--ansi-red': '#cd3131', '--ansi-green': '#0dbc79', '--ansi-yellow': '#e5e510', '--ansi-blue': '#2472c8', '--ansi-magenta': '#bc3fbc', '--ansi-cyan': '#11a8cd', '--ansi-white': '#e5e5e5',
+      '--ansi-brightblack': '#666666', '--ansi-brightred': '#f14c4c', '--ansi-brightgreen': '#23d18b', '--ansi-brightyellow': '#f5f543', '--ansi-brightblue': '#3b8eea', '--ansi-brightmagenta': '#d670d6', '--ansi-brightcyan': '#29b8db', '--ansi-brightwhite': '#e5e5e5'
+    },
+    light: {
+      '--bg': '#ffffff', '--side': '#f8f8f8', '--act': '#f8f8f8', '--hl': '#f5f5f5', '--sel': '#add6ff', '--find': '#a8ac94',
+      '--border': '#e5e5e5', '--fg': '#3b3b3b', '--dim': '#6e7681', '--punct': '#3b3b3b', '--accent': '#005fb8',
+      '--hover': '#f2f2f2', '--inactive': '#dbe9f9', '--var': '#001080', '--cmt': '#008000',
+      '--tk-keyword': '#0000ff', '--tk-string': '#a31515', '--tk-number': '#098658', '--tk-function': '#795e26', '--tk-type': '#267f99', '--tk-property': '#001080',
+      '--ansi-black': '#000000', '--ansi-red': '#cd3131', '--ansi-green': '#107c10', '--ansi-yellow': '#949800', '--ansi-blue': '#0451a5', '--ansi-magenta': '#bc05bc', '--ansi-cyan': '#0598bc', '--ansi-white': '#555555',
+      '--ansi-brightblack': '#666666', '--ansi-brightred': '#cd3131', '--ansi-brightgreen': '#14ce14', '--ansi-brightyellow': '#b5ba00', '--ansi-brightblue': '#0451a5', '--ansi-brightmagenta': '#bc05bc', '--ansi-brightcyan': '#0598bc', '--ansi-brightwhite': '#a5a5a5'
+    }
+  };
+  var WORDS = ['lantern', 'basalt', 'marigold', 'harbor', 'juniper', 'cobalt', 'saffron', 'glacier', 'tangerine', 'moss', 'ink', 'orchard', 'thistle', 'copper', 'meadow', 'velvet', 'comet', 'pebble', 'sorbet', 'dune', 'fjord', 'lilac', 'nectar', 'obsidian', 'paprika', 'ripple', 'sage', 'umber', 'wisp', 'zephyr'];
+  var current = null, other = null, snippetText = '';
+  var MODE_HINT = 'Sets whether the generated theme is dark or light. Auto picks from the name. If you color only part of the window, match your current theme.';
+
+  /* ---------- preview markup ---------- */
+  var CODE = [
+    [['k', 'import'], ['w', ' '], ['x', '{'], ['w', ' '], ['f', 'createHash'], ['w', ' '], ['x', '}'], ['w', ' '], ['k', 'from'], ['w', ' '], ['s', '"node:crypto"'], ['x', ';']],
+    [],
+    [['c', '// Map any string to a hue from 0 to 359']],
+    [['k', 'export'], ['w', ' '], ['k', 'function'], ['w', ' '], ['f', 'hueFor'], ['x', '('], ['v', 'seed'], ['x', ':'], ['w', ' '], ['t', 'string'], ['x', '):'], ['w', ' '], ['t', 'number'], ['w', ' '], ['x', '{']],
+    [['w', '  '], ['k', 'const'], ['w', ' '], ['v', 'digest'], ['w', ' '], ['x', '='], ['w', ' '], ['f', 'createHash', 'sel'], ['x', '(', 'sel'], ['s', '"sha256"', 'sel'], ['x', ')', 'sel'], ['x', '.'], ['f', 'update'], ['x', '('], ['v', 'seed'], ['x', ');']],
+    [['w', '  '], ['k', 'const'], ['w', ' '], ['v', 'raw'], ['w', ' '], ['x', '='], ['w', ' '], ['v', 'digest'], ['x', '.'], ['f', 'digest'], ['x', '().'], ['f', 'readUInt32BE'], ['x', '('], ['n', '0'], ['x', ');'], ['caret', '']],
+    [['w', '  '], ['k', 'const'], ['w', ' '], ['v', 'hue', 'find'], ['w', ' '], ['x', '='], ['w', ' '], ['x', '('], ['v', 'raw'], ['w', ' '], ['x', '/'], ['w', ' '], ['n', '2'], ['w', ' '], ['x', '**'], ['w', ' '], ['n', '32'], ['x', ')'], ['w', ' '], ['x', '*'], ['w', ' '], ['n', '360'], ['x', ';']],
+    [['w', '  '], ['k', 'return'], ['w', ' '], ['t', 'Math'], ['x', '.'], ['f', 'round'], ['x', '('], ['v', 'hue', 'alt'], ['x', ');']],
+    [['x', '}']],
+    [],
+    [['k', 'interface'], ['w', ' '], ['t', 'Theme'], ['w', ' '], ['x', '{']],
+    [['w', '  '], ['p', 'name'], ['x', ':'], ['w', ' '], ['t', 'string'], ['x', ';']],
+    [['w', '  '], ['p', 'dark'], ['x', ':'], ['w', ' '], ['t', 'boolean'], ['x', ';']],
+    [['x', '}']]
+  ];
+  var CUR_LINE = 5; // zero-based
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function codeHtml() {
+    return CODE.map(function (segs, i) {
+      var h = '<div class="ln' + (i === CUR_LINE ? ' cur' : '') + '"><span class="no">' + (i + 1) + '</span><span>';
+      segs.forEach(function (s) {
+        if (s[0] === 'caret') { h += '<span class="caret"></span>'; return; }
+        var cls = (s[0] === 'w' ? '' : s[0]) + (s[2] ? ' ' + s[2] : '');
+        h += cls ? '<span class="' + cls + '">' + esc(s[1]) + '</span>' : esc(s[1]);
+      });
+      return h + '</span></div>';
+    }).join('');
+  }
+  var ICONS = [
+    '<svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/></svg>',
+    '<svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="5.5"/><path d="M15 15l5 5"/></svg>',
+    '<svg viewBox="0 0 24 24"><circle cx="7" cy="6" r="2.2"/><circle cx="7" cy="18" r="2.2"/><circle cx="17" cy="9" r="2.2"/><path d="M7 8.2v7.6M17 11.2c0 3-4 2.6-8.4 5.4"/></svg>',
+    '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7"/><rect x="13" y="4" width="7" height="7"/><rect x="4" y="13" width="7" height="7"/><rect x="14.5" y="14.5" width="4" height="4"/></svg>'
+  ];
+  var ANSI = ['black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white'];
+  function previewHtml() {
+    var act = ICONS.map(function (ic, i) {
+      return '<div class="' + (i === 0 ? 'on' : '') + '">' + ic + (i === 2 ? '<span class="badge">3</span>' : '') + '</div>';
+    }).join('');
+    var blocks = function (pre) {
+      return '<div class="blocks">' + ANSI.map(function (n) { return '<i style="background:var(--ansi-' + pre + n + ')"></i>'; }).join('') + '</div>';
+    };
+    return '<div class="title" aria-hidden="true"><span class="dots"><i></i><i></i><i></i></span><span class="ttl">hue.ts — string-theme</span></div>' +
+      '<div class="body" aria-hidden="true">' +
+        '<div class="actbar">' + act + '</div>' +
+        '<div class="side"><h4>EXPLORER</h4><div class="sec">STRING-THEME</div>' +
+          '<div class="item dim">▾ src</div><div class="item sel">hue.ts</div><div class="item">theme.ts</div>' +
+          '<div class="item">palette.json</div><div class="item">package.json</div><div class="item dim">README.md</div></div>' +
+        '<div class="main">' +
+          '<div class="tabs"><div class="tab on">hue.ts</div><div class="tab">theme.ts</div></div>' +
+          '<div class="crumbs">src › <b>hue.ts</b> › <b>hueFor</b></div>' +
+          '<div class="editor">' + codeHtml() + '</div>' +
+          '<div class="panelarea"><div class="ptabs"><span>PROBLEMS</span><span class="on">TERMINAL</span><span>OUTPUT</span></div>' +
+            '<div class="term">$ npm test\n <span style="color:var(--ansi-green)">PASS</span>  <span style="color:var(--ansi-cyan)">src/hue.test.ts</span>\n <span style="color:var(--ansi-yellow)">WARN</span>  1 snapshot obsolete\n <span style="color:var(--ansi-red)">FAIL</span>  <span style="color:var(--ansi-brightblack)">src/legacy.test.ts</span>  <span style="color:var(--ansi-blue)">info</span> <span style="color:var(--ansi-magenta)">34 checks</span>' + blocks('') + blocks('bright') + '</div></div>' +
+        '</div></div>' +
+      '<div class="status" aria-hidden="true"><div><span>⎇ main</span><span>✕ 0  ⚠ 1</span></div><div><span>Ln 6, Col 52</span><span>UTF-8</span><span>TypeScript</span></div></div>';
+  }
+
+  /* ---------- rendering ---------- */
+  function applyVars(t) {
+    var root = document.documentElement, v = E.cssVars(t);
+    Object.keys(v).forEach(function (k) { root.style.setProperty(k, v[k]); });
+    root.style.colorScheme = t.dark ? 'dark' : 'light';
+  }
+  function applyPreviewVars(t) {
+    var look = DEFAULT_LOOK[t.dark ? 'dark' : 'light'], vsc = $('vsc'), on = scope();
+    Object.keys(REGIONS).forEach(function (area) {
+      REGIONS[area].forEach(function (sel) {
+        var el = vsc.querySelector(sel);
+        if (!el) return;
+        Object.keys(look).forEach(function (k) {
+          if (on[area]) el.style.removeProperty(k); else el.style.setProperty(k, look[k]);
+        });
+      });
+    });
+  }
+  function renderSwatches(t) {
+    var p = t.palette, on = scope();
+    var items = [['Bar color', p.sbBg], ['Bar text', p.sbFg], ['Quieter bar text', p.sbDim]];
+    if (on.explorer) items.push(['Explorer', p.sideBg], ['Selected row', p.sel]);
+    if (on.editor) {
+      items.push(['Editor', p.bg]);
+      E.ROLES.forEach(function (r) { items.push([E.ROLE_LABEL[r].split(' and ')[0], t.tok[r]]); });
+    }
+    if (on.panel && !on.editor) items.push(['Panel', p.bg]);
+    if (on.all) items.push(['Accent', p.accent]);
+    $('swatches').innerHTML = items.map(function (it) {
+      return '<div class="sw"><b style="background:' + it[1] + '"></b><code>' + it[1] + '</code><small>' + esc(it[0]) + '</small></div>';
+    }).join('');
+  }
+  function highlightJson(text) {
+    return esc(text).replace(/("(?:[^"\\]|\\.)*")(\s*:)?|[{}\[\],]/g, function (m, str, colon) {
+      if (str) return colon ? '<span class="j-key">' + str + '</span>' + colon : '<span class="j-str">' + str + '</span>';
+      return '<span class="j-punct">' + m + '</span>';
+    });
+  }
+  function renderSnippet(t) {
+    var on = scope();
+    var baseOk = state.every && !state.adapt, semOk = on.editor;
+    $('optBaseLabel').textContent = baseOk ? 'Set the base theme to ' + t.baseTheme
+      : state.adapt ? 'Set the base theme (off while matching light and dark themes)' : 'Set the base theme (only with "Color everything")';
+    $('optSemLabel').textContent = semOk ? 'Also color semantic tokens (TypeScript, JavaScript, Java)' : 'Also color semantic tokens (needs the coding palette)';
+    [['optBase', baseOk], ['optSem', semOk]].forEach(function (o) {
+      $(o[0]).disabled = !o[1]; $(o[0]).parentNode.classList.toggle('off', !o[1]);
+    });
+    $('noteLayer').hidden = !on.editor; $('noteFrame').hidden = on.editor;
+    $('noteAdapt').hidden = !(state.adapt && (on.explorer || on.editor || on.panel));
+    // One control at a time: "Theme brightness" shapes the snippet when matching is off;
+    // "Light mode / Dark mode" in the preview only switches the view when matching is on.
+    $('brightBox').hidden = state.adapt;
+    $('pmodeBox').hidden = !state.adapt;
+    $('modeHint').textContent = MODE_HINT;
+    var pm = document.querySelector('input[name="pmode"][value="' + (t.dark ? 'dark' : 'light') + '"]'); if (pm) pm.checked = true;
+    var mr = document.querySelector('input[name="mode"][value="' + state.mode + '"]'); if (mr) mr.checked = true; // both controls edit the same setting
+    $('everSub').textContent = state.adapt ? 'Also buttons, inputs, command palette, links and scrollbars' : 'Also buttons, inputs, command palette, links and scrollbars, and sets the base theme';
+    snippetText = E.makeSnippet(t, { explorer: state.explorer, editor: state.editor, panel: state.panel, everything: state.every, baseTheme: state.base, semantic: state.sem, braces: state.braces, adapt: state.adapt });
+    $('snippet').innerHTML = highlightJson(snippetText);
+  }
+  function ratio(n) { return n.toFixed(2) + ' : 1'; }
+  function renderReport(t, o) {
+    var on = scope(), inScope = function (c) { return c.area === 'frame' || on[c.area]; };
+    var checks = t.checks.filter(inScope);
+    $('cvdSection').hidden = !on.editor;
+    var verName = function (th) { return th.dark ? 'dark' : 'light'; };
+    // Matching light and dark: both versions are in the snippet, so the totals cover both.
+    var all = checks.map(function (c) { return { c: c, v: verName(t) }; });
+    if (o) o.checks.filter(inScope).forEach(function (c) { all.push({ c: c, v: verName(o) }); });
+    var total = all.length, pass = all.filter(function (x) { return x.c.pass; }).length;
+    var tight = all.slice().sort(function (a, b) { return a.c.ratio / a.c.min - b.c.ratio / b.c.min; })[0];
+    $('summary').innerHTML =
+      '<span class="big">' + pass + ' of ' + total + '</span><span>checks meet their target on the final hex values' + (o ? ', counting both the dark and light versions' : '') + '.</span>' +
+      '<span class="note">Closest to its limit: <b>' + esc(tight.c.label) + '</b> at ' + ratio(tight.c.ratio) + ' (needs ' + tight.c.min + ' : 1)' + (o ? ', ' + tight.v + ' version' : '') + '.</span>' +
+      (o ? '<span class="note">The tables below show the ' + verName(t) + ' version. Use Light mode or Dark mode above the preview to see the other.</span>' : '');
+    var groups = {}, order = [];
+    checks.forEach(function (c) {
+      if (!groups[c.group]) { groups[c.group] = []; order.push(c.group); }
+      groups[c.group].push(c);
+    });
+    $('groups').innerHTML = order.map(function (g) {
+      var rows = groups[g].map(function (c) {
+        var sample = c.swatch
+          ? '<span class="aa" style="background:' + c.bg + '"><u style="background:' + c.fg + '"></u></span>'
+          : '<span class="aa" style="color:' + c.fg + ';background:' + c.bg + '">Aa</span>';
+        return '<tr><td>' + sample + '</td><td>' + esc(c.label) + (c.note ? '<small>' + esc(c.note) + '</small>' : '') + '</td>' +
+          '<td class="num">' + ratio(c.ratio) + '</td><td class="num">' + c.min + ' : 1</td>' +
+          '<td><span class="pill ' + (c.pass ? 'ok' : 'bad') + '">' + (c.pass ? '✓ Pass' : '✕ Below') + '</span></td></tr>';
+      }).join('');
+      return '<div class="tblwrap"><table><caption>' + esc(g) + '</caption><thead><tr><th><span class="sr">Sample</span></th><th>Pair</th><th class="num">Ratio</th><th class="num">Needs</th><th><span class="sr">Result</span></th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+    }).join('');
+    var list = E.ROLES.map(function (r) { return t.tok[r]; }).concat([t.palette.fg]);
+    $('cvd').innerHTML = t.cvd.map(function (v) {
+      var band = v.min >= 0.05 ? 'Easy to tell apart' : v.min >= 0.03 ? 'Close' : 'Tight';
+      var strip = list.map(function (h) { return '<i style="background:' + E.simulateHex(h, v.view) + '"></i>'; }).join('');
+      return '<div class="cvdrow"><div><b>' + esc(v.label) + '</b></div><div class="strip" aria-hidden="true">' + strip + '</div>' +
+        '<div><span class="mono">' + v.min.toFixed(3) + '</span> · ' + band + '<small>Closest pair: ' + esc(v.a) + ' and ' + esc(v.b) + '</small></div></div>';
+    }).join('');
+  }
+  function renderVision() {
+    var w = $('vsc'), v = state.vision;
+    w.style.filter = v === 'normal' ? 'none' : 'url(#cvd-' + v + ')';
+    var names = { protan: 'protanopia (no red cones)', deutan: 'deuteranopia (no green cones)', tritan: 'tritanopia (no blue cones)', gray: 'complete color blindness (grayscale)' };
+    var text = v === 'normal'
+      ? 'The preview shows the exact hex values in the snippet, in sRGB. Pick a vision type above to see roughly how the theme looks to someone with that color-vision deficiency.'
+      : 'Simulating ' + names[v] + '. This is an approximation, shown for checking that colors stay distinguishable.';
+    if (!state.every) text += ' Areas you have not chosen to color are drawn like Default Dark or Light Modern, to match the ' + (state.adapt ? 'mode shown' : 'theme brightness') + ', as a stand-in for your own theme.';
+    $('visionNote').textContent = text;
+  }
+  function syncOptions() {
+    // "Everything" implies the other three: show them ticked and locked, and keep their own choices for later.
+    $('optExplorer').checked = state.every || state.explorer;
+    $('optEditor').checked = state.every || state.editor;
+    $('optPanel').checked = state.every || state.panel;
+    ['optExplorer', 'optEditor', 'optPanel'].forEach(function (id) {
+      $(id).disabled = state.every; $(id).parentNode.classList.toggle('off', state.every);
+    });
+  }
+  function render() {
+    syncOptions();
+    current = E.buildTheme(state.seed, state.mode);
+    other = state.adapt ? E.buildTheme(state.seed, current.dark ? 'light' : 'dark') : null;
+    applyVars(current);
+    applyPreviewVars(current);
+    renderSwatches(current);
+    renderSnippet(current);
+    renderReport(current, other);
+    renderVision();
+  }
+
+  /* ---------- wiring ---------- */
+  function buildFilters() {
+    var h = '';
+    ['protan', 'deutan', 'tritan'].forEach(function (k) {
+      var m = E.CVD[k].m;
+      var v = [].concat(m[0], [0, 0], m[1], [0, 0], m[2], [0, 0], [0, 0, 0, 1, 0]).join(' ');
+      h += '<filter id="cvd-' + k + '" color-interpolation-filters="linearRGB"><feColorMatrix type="matrix" values="' + v + '"/></filter>';
+    });
+    h += '<filter id="cvd-gray" color-interpolation-filters="linearRGB"><feColorMatrix type="saturate" values="0"/></filter>';
+    $('filters').innerHTML = h;
+  }
+  /* ---------- URL hash: inputs only, non-defaults only ---------- */
+  function writeHash() {
+    var want = U.encode(state), cur = location.hash.replace(/^#/, '');
+    if (want === cur) return;
+    try { location.replace('#' + want); } catch (e) { /* a frame that refuses to navigate just keeps its URL */ }
+  }
+  function update() { render(); writeHash(); }
+  function syncControls() {
+    $('seed').value = state.seed;
+    var m = document.querySelector('input[name="mode"][value="' + state.mode + '"]'); if (m) m.checked = true;
+    var v = document.querySelector('input[name="vision"][value="' + state.vision + '"]'); if (v) v.checked = true;
+    $('optBase').checked = state.base; $('optSem').checked = state.sem; $('optBraces').checked = state.braces;
+    $('optExplorer').checked = state.explorer; $('optEditor').checked = state.editor; $('optPanel').checked = state.panel; $('optEvery').checked = state.every;
+    $('optAdapt').checked = state.adapt;
+  }
+  function setSeed(s) { state.seed = s; $('seed').value = s; update(); }
+  function copy() {
+    var ok = false, msg = $('copied');
+    function done() {
+      msg.textContent = ok ? 'Copied. Paste it into settings.json.' : 'Copy was blocked. Select the snippet text and copy it manually.';
+      setTimeout(function () { msg.textContent = ''; }, 3500);
+    }
+    function fallback() {
+      try {
+        var ta = document.createElement('textarea');
+        ta.value = snippetText; ta.setAttribute('readonly', '');
+        ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
+        document.body.appendChild(ta); ta.select();
+        ok = document.execCommand('copy'); ta.remove();
+      } catch (e) { ok = false; }
+      done();
+    }
+    try {
+      navigator.clipboard.writeText(snippetText).then(function () { ok = true; done(); }, fallback);
+    } catch (e) { fallback(); }
+  }
+  /* ---------- "Why?" popup: hover or click opens it; leaving it, clicking elsewhere or Esc closes it ---------- */
+  function initWhy() {
+    var wrap = $('whyWrap'), btn = $('whyBtn'), pop = $('whyPop'), byHover = false;
+    function set(open) { pop.hidden = !open; btn.setAttribute('aria-expanded', String(open)); if (!open) byHover = false; }
+    btn.addEventListener('pointerenter', function (e) { if (e.pointerType === 'mouse' && pop.hidden) { set(true); byHover = true; } });
+    wrap.addEventListener('pointerleave', function (e) { if (e.pointerType === 'mouse') set(false); });
+    btn.addEventListener('click', function () {
+      if (byHover) { byHover = false; return; } // hovering already opened it: the click keeps it open
+      set(pop.hidden);
+    });
+    document.addEventListener('pointerdown', function (e) { if (!pop.hidden && !wrap.contains(e.target)) set(false); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !pop.hidden) { set(false); btn.focus(); } });
+    wrap.addEventListener('focusout', function (e) { if (!pop.hidden && !wrap.contains(e.relatedTarget)) set(false); });
+  }
+  function init() {
+    initWhy();
+    Object.assign(state, U.parse(location.hash));
+    $('vsc').innerHTML = previewHtml();
+    buildFilters();
+    syncControls();
+    $('seed').addEventListener('input', function (e) { state.seed = e.target.value; update(); });
+    $('shuffle').addEventListener('click', function () {
+      var w; do { w = WORDS[Math.floor(Math.random() * WORDS.length)]; } while (w === state.seed.trim());
+      setSeed(w);
+    });
+    $('modeSeg').addEventListener('change', function (e) { state.mode = e.target.value; update(); });
+    $('pmodeSeg').addEventListener('change', function (e) { state.mode = e.target.value; update(); });
+    $('visionSeg').addEventListener('change', function (e) { state.vision = e.target.value; renderVision(); writeHash(); });
+    $('optExplorer').addEventListener('change', function (e) { state.explorer = e.target.checked; update(); });
+    $('optEditor').addEventListener('change', function (e) { state.editor = e.target.checked; update(); });
+    $('optPanel').addEventListener('change', function (e) { state.panel = e.target.checked; update(); });
+    $('optEvery').addEventListener('change', function (e) { state.every = e.target.checked; update(); });
+    $('optAdapt').addEventListener('change', function (e) { state.adapt = e.target.checked; update(); });
+    $('optBase').addEventListener('change', function (e) { state.base = e.target.checked; renderSnippet(current); writeHash(); });
+    $('optSem').addEventListener('change', function (e) { state.sem = e.target.checked; renderSnippet(current); writeHash(); });
+    $('optBraces').addEventListener('change', function (e) { state.braces = e.target.checked; renderSnippet(current); writeHash(); });
+    $('copy').addEventListener('click', copy);
+    // Someone edited the link, used Back/Forward, or opened a different link in this page.
+    window.addEventListener('hashchange', function () {
+      var next = U.parse(location.hash);
+      if (U.encode(next) === U.encode(state)) return; // our own write
+      Object.assign(state, next);
+      syncControls();
+      render();
+    });
+    render(); // do not rewrite an incoming link on load
+  }
+  init();
+})();
+</script>
+</body>
+</html>

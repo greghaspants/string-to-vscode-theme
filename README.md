@@ -1,0 +1,237 @@
+# String-to-VS-Code-theme util
+
+Type a project name, get a VS Code theme as a `settings.json` snippet. The same name always gives the same colors, on every machine, so a dozen open project windows are easy to tell apart.
+
+It is one self-contained web page: no framework, no server, no external fonts or scripts. It is built to `dist/index.html` and published with GitHub Pages.
+
+Live site: `https://<your-user>.github.io/<your-repo>/` (appears after the first successful deploy, see [Publishing](#publishing-to-github-pages)).
+
+## What it does
+
+- Turns any text into a palette designed in OKLCH and gamut-mapped to sRGB hex, which is the only color format VS Code themes accept.
+- Colors the **title bar, activity bar (left icon strip) and status bar** with one shared bright accent. This is the part that makes windows recognizable, so it is always on.
+- Optionally colors the side bars, the coding palette, the panel and terminal, or everything.
+- Can generate a **dark and a light version** of everything except that frame. The snippet then follows whichever theme you use, including when your OS switches between light and dark.
+- Shows a live preview of a VS Code window (with hover colors), including simulated color-vision deficiencies.
+- Reports every contrast check on the final hex values.
+
+### Contrast and accessibility targets
+
+| Kind of pair | Target |
+| --- | --- |
+| Body text (editor text, selected rows, active tab) | 7 : 1 |
+| Other text (syntax colors, secondary text, status bar) | 4.5 : 1 |
+| Non-text (cursor, focus ring, input border, inactive icons) | 3 : 1 |
+
+The six syntax colors are chosen, deterministically per name, from the hue arrangement that stays most distinguishable for normal vision and for protanopia, deuteranopia and tritanopia (Machado et al. 2009 simulation). The page lists every check; the unit tests assert that all of them pass for 3,000+ generated themes.
+
+## Using the generated snippet
+
+The snippet is meant for **workspace settings**, so each project gets its own colors.
+
+1. Open the project folder in VS Code.
+2. Run **Preferences: Open Workspace Settings (JSON)** from the Command Palette. This opens `.vscode/settings.json` and creates it if needed.
+3. Paste the snippet inside the existing outer braces. For an empty file, tick "Include outer { }" first. In a `.code-workspace` file, paste it inside the `"settings"` object.
+4. Save. The colors apply to that project's window only.
+
+`.vscode/settings.json` is often committed. If you do not want teammates to get the colors, add it to `.git/info/exclude` or your global gitignore.
+
+### Options
+
+The frame (title bar, activity bar, status bar) is always included.
+
+| Option | Default | What it colors | Keys |
+| --- | --- | --- | --- |
+| Color the side bars | on | Explorer and Search on the left, and the Chat bar on the right (VS Code paints the secondary side bar with the same `sideBar.*` keys), including list rows | 20 |
+| Color the coding palette | off | Editor background, tabs, breadcrumbs, widgets, plus syntax token rules and, optionally, semantic token rules | 38 + rules |
+| Color the panel and terminal | off | The bottom panel (Terminal, Problems, Output) and the terminal's 16 ANSI colors and cursor | 25 |
+| Color everything | off | All of the above plus buttons, inputs, badges, command palette, links, focus ring and scrollbars | 130 total |
+| Match light and dark themes | on | Keeps the frame fixed and gives everything else a dark and a light version | |
+
+With matching on, the snippet uses VS Code's theme-scoped blocks. `"[*Dark*]"` applies to any theme whose id contains `Dark` (Dark 2026, Dark Modern, Dark+, Solarized Dark and so on), and `"[*Light*]"` to any theme containing `Light`. Themes with neither word get just the frame. With matching off, the snippet is a single version (Auto, Dark or Light); only "Color everything" can also set a base theme, and only with matching off, because pinning one theme would defeat matching.
+
+Colors for areas you do not pick are left to your own theme. The preview draws those areas like Default Dark or Light Modern as a stand-in.
+
+### The link keeps your setup
+
+The page keeps its inputs in the URL fragment, so a link recreates a setup exactly. Only inputs that differ from the defaults are written, and outputs never are.
+
+```
+#my-project                     a project name
+#my-project--dark--editor       name plus options, separated by a double hyphen
+#--panel--no-explorer           default name with options
+#--s-<base32>                   a name that cannot be written plainly (capitals, spaces, unicode)
+```
+
+Tokens: `dark` `light` (theme brightness or preview mode), `protan` `deutan` `tritan` `gray` (preview vision), `no-explorer`, `editor`, `panel`, `everything`, `no-adapt` (turn matching off), `no-base`, `no-semantic`, `braces`, `blank` (empty name). Only a plain `#name` shape is used (letters, digits, hyphens) because that is all the Claude artifact host passes through, and links work in both places.
+
+## How the colors are made
+
+1. **Hash.** The trimmed name goes through FNV-1a with a murmur3 finalizer to a 32-bit number. Two more hashes of the name (prefixed with control characters) drive the small lightness and chroma variations and seed a small PRNG (mulberry32).
+2. **Hue and brightness.** The first hash gives the hue (0 to 359). Auto mode picks dark or light from the second hash (about 62% dark).
+3. **Design in OKLCH.** Surfaces, text and accents are placed by lightness and chroma, then gamut-mapped by lowering chroma at fixed lightness and hue until the color fits sRGB.
+4. **Fit to contrast.** Each text color starts at a target lightness and moves toward the text direction in small steps until it meets its target on every surface it can appear on, measured on the final hex values.
+5. **Frame is mode-independent.** The accent behind the title bar, activity bar and status bar is built without looking at light or dark, so it is identical in both versions. A unit test checks this for every name.
+
+Because everything is plain arithmetic on the name, the output is the same on every machine. A golden snapshot test pins this down, see [Changing the algorithm](#changing-the-algorithm).
+
+## Repository layout
+
+```
+.
+├── src/
+│   ├── engine.js            pure engine: string -> theme, snippet builder, URL codec (no DOM)
+│   └── template.html        the page: markup, CSS and the inline UI script
+├── scripts/
+│   ├── build.js             template + engine -> dist/index.html (one file)
+│   ├── serve.js             tiny static server for dist/, used by Playwright
+│   └── update-golden.js     regenerates tests/fixtures/golden.json
+├── tests/
+│   ├── unit/                node:test: themes, snippets, URL codec, golden snapshot
+│   ├── e2e/                 Playwright: app behavior, layout, post-deploy smoke test
+│   ├── helpers/             shared test code (word generator, golden computation)
+│   └── fixtures/golden.json pinned output for 40 names
+├── .github/
+│   ├── workflows/ci.yml     verify -> deploy -> smoke
+│   └── dependabot.yml       weekly updates for actions and dev dependencies
+├── playwright.config.js
+├── pnpm-workspace.yaml      pnpm settings (engineStrict)
+├── .node-version            24.22.3
+├── package.json             pins pnpm 12.18.0 via "packageManager"
+├── CLAUDE.md                guidance for AI assistants and contributors
+└── README.md
+```
+
+`dist/`, `node_modules/`, `playwright-report/` and `test-results/` are generated and git-ignored.
+
+## Requirements
+
+| Tool | Version | Pinned in |
+| --- | --- | --- |
+| Node.js | 24.22.3 | `.node-version`, `engines` in `package.json` |
+| pnpm | 12.18.0 | `packageManager` in `package.json` |
+| Playwright | 1.65.1 | `package.json`, `pnpm-lock.yaml` |
+
+Install Node 24.22.3 with whatever you use: fnm, mise, nodenv and asdf read `.node-version` automatically, and with nvm run `nvm install 24.22.3`. Then get pnpm 12.18.0, for example with Corepack (`corepack enable`, which reads `packageManager`) or `npm install -g pnpm@12.18.0`.
+
+`pnpm install` refuses to run on a different Node version (`engineStrict` in `pnpm-workspace.yaml`). In pnpm 11 and later, pnpm settings live in `pnpm-workspace.yaml`; `.npmrc` is no longer read for them.
+
+## Getting started
+
+```sh
+pnpm install
+pnpm playwright:install        # downloads Chromium (and system libraries on Linux) for the e2e tests
+pnpm build                     # writes dist/index.html
+pnpm serve                     # http://127.0.0.1:4173/   (or just open dist/index.html)
+```
+
+There is no dev server or watch mode on purpose: the page is one file, and `pnpm build` takes well under a second.
+
+## Commands
+
+| Command | What it does |
+| --- | --- |
+| `pnpm build` | Builds `dist/index.html`. `BUILD_ID=<sha> pnpm build` stamps the build into `<meta name="build">`. |
+| `pnpm serve` | Serves `dist/` at `http://127.0.0.1:4173/` (`PORT=...` to change). |
+| `pnpm test` | Everything CI runs: unit tests, build, end-to-end tests. |
+| `pnpm test:unit` | Node's built-in test runner on `tests/unit/*.test.js` (about 25 s). |
+| `pnpm test:e2e` | Builds, then runs all Playwright specs against the built page (about 25 s). |
+| `pnpm test:smoke` | Only the smoke spec. With `BASE_URL` set it tests a live site instead of the local build. |
+| `pnpm golden:update` | Rewrites `tests/fixtures/golden.json`. Read [Changing the algorithm](#changing-the-algorithm) first. |
+| `pnpm playwright:install` | Installs Playwright's Chromium. |
+
+Useful Playwright variations:
+
+```sh
+pnpm exec playwright test -g "panel"        # tests whose title matches
+pnpm exec playwright test --ui              # interactive runner
+pnpm exec playwright test --headed          # watch it run
+pnpm exec playwright show-report            # open the last HTML report (CI uploads it as an artifact)
+CHROME_PATH=/usr/bin/google-chrome pnpm exec playwright test   # use an installed Chrome instead of the downloaded one
+```
+
+## Tests
+
+| Suite | Covers |
+| --- | --- |
+| `tests/unit/themes.test.js` | Every contrast check passes for 3,000+ themes (1,500 names, dark and light). All colors are `#rrggbb`. Determinism. Color-blind separation floors. Option groups exist and do not overlap. The frame is identical in dark and light. |
+| `tests/unit/snippet.test.js` | Each option adds exactly its keys and nothing else, with and without matching. Scoped `[*Dark*]` and `[*Light*]` structure. The snippet does not depend on the preview mode. Brace and base-theme switches. |
+| `tests/unit/url.test.js` | The URL codec: defaults, readable tokens, base32 names, reserved names, 2,000 random round-trips, damaged links. |
+| `tests/unit/golden.test.js` | A snapshot of 40 names (colors, token rules, three snippet variants) so a code change cannot silently recolor existing windows. |
+| `tests/e2e/app.spec.js` | The page in a real browser: typing, links, every option, locking under "Color everything", light and dark controls, color-blind filters, Copy, the "Why?" popup (mouse, keyboard, touch), no network requests beyond the page, no console errors. |
+| `tests/e2e/layout.spec.js` | Two-column layout with the pinned preview, stacked layout on tablet and phone, no horizontal scrolling from 320 px to 1920 px. |
+| `tests/e2e/smoke.spec.js` | Runs against a live URL after deploy. See below. |
+
+## CI/CD
+
+`.github/workflows/ci.yml` has three jobs:
+
+```
+pull request ──► verify
+push to main ──► verify ──► deploy ──► smoke
+```
+
+- **verify** ("Build and verify"): checks the Node and pnpm versions, installs with `--frozen-lockfile`, runs the unit tests, builds with `BUILD_ID` set to the commit SHA, installs Chromium, runs the Playwright suite, uploads the HTML report, and (on main only) packages `dist/` for Pages. The report is uploaded even when tests fail.
+- **deploy**: runs only on main, only if `verify` passed (`needs: verify`). It publishes the exact `dist/` that was just tested, never a rebuild.
+- **smoke**: runs only after `deploy`. It opens the live URL and checks that the page serves the build that was just deployed (`<meta name="build">` equals the commit SHA, polled for up to two minutes while Pages catches up), that it loads with no errors or foreign requests, and that it produces exactly the same snippet as the engine in `src/`. That last check proves "same name, same colors" in production, not only in source.
+
+### Publishing to GitHub Pages
+
+One-time setup:
+
+1. Create the repo and push (the repo name can be anything):
+   ```sh
+   git init -b main
+   git add .
+   git commit -m "Initial commit"
+   gh repo create string-to-vscode-theme --public --source=. --push
+   ```
+   Without the GitHub CLI, create an empty repo on github.com, then `git remote add origin <url>` and `git push -u origin main`. GitHub Pages needs a public repo on the free plan; private repos need a paid plan.
+2. In the repo go to **Settings → Pages → Build and deployment → Source** and choose **GitHub Actions**. (Or: `gh api -X POST repos/<owner>/<repo>/pages -f build_type=workflow`.) Do this before the first run, or the deploy job fails with a "Pages not enabled" or 404 error. If it does, enable Pages and use **Actions → CI and deploy → Re-run all jobs**.
+3. Watch **Actions → CI and deploy**. When all three jobs are green, the site is at `https://<owner>.github.io/<repo>/`, also shown on the `deploy` job and on the repo's **Deployments** panel.
+4. Put that URL in the repo's "About" box and at the top of this README.
+
+After that, every push to `main` that passes verification is published automatically. You can also start a run by hand from the **Actions** tab (**Run workflow**) on `main`.
+
+Recommended: protect `main`. In **Settings → Rules → Rulesets** (or Branches → Branch protection) require a pull request and the status check **Build and verify**. The check name only appears in the picker after it has run once. This turns the verification into a gate that nothing reaches `main` without.
+
+The page uses no external files and no absolute paths, so it works at `https://<owner>.github.io/<repo>/` (a project site) and at a custom domain alike. For a custom domain, add it under **Settings → Pages**; the smoke test follows the `page_url` that deploy reports.
+
+### Rolling back
+
+Pages has no rollback button of its own. If a bad build gets out (the smoke job turns red), revert and push:
+
+```sh
+git revert <bad-commit-sha>
+git push
+```
+
+The pipeline verifies and redeploys the previous state. If two pushes land within a couple of minutes, the earlier run's smoke job can fail because the live site already shows the later build. Look at the latest run.
+
+## Changing the algorithm
+
+Colors are the product. Anything that changes the hex output of any name recolors every window people already use, so treat it as a breaking change.
+
+- Do not change `hash32`, the `buildTheme` formulas or constants, or a key group casually.
+- If you must, run `pnpm test:unit`, watch `golden.test.js` fail, run `pnpm golden:update`, **read the diff of `tests/fixtures/golden.json`** (each changed line is a color that moved), and say in the PR that the output changes.
+- Adding a new option that is off by default changes no existing output, so the golden entries stay the same. Adding keys to an existing group does change the "allAreas" and "everything" snippet hashes, which is meant to be noticed and acknowledged with `pnpm golden:update`.
+
+Adding an option touches several places; `CLAUDE.md` has the checklist.
+
+## Troubleshooting
+
+| Symptom | Cause and fix |
+| --- | --- |
+| `ERR_PNPM_UNSUPPORTED_ENGINE` | Wrong Node version. Use 24.22.3 (`.node-version`). |
+| `pnpm: command not found`, or a different pnpm version | Install pnpm 12.18.0 or run `corepack enable`. |
+| Playwright says the browser is not installed | `pnpm playwright:install`, or set `CHROME_PATH` to an installed Chrome or Chromium. |
+| Playwright fails on missing system libraries (Linux) | `pnpm playwright:install` runs with `--with-deps` and may need `sudo`. |
+| Port 4173 already in use | `PORT=4180 pnpm serve`; for tests, stop the other server (locally Playwright reuses a running one). |
+| Deploy job: `Failed to create deployment (status: 404)` or "Pages not enabled" | Set **Settings → Pages → Source** to **GitHub Actions**, then re-run the jobs. |
+| Smoke job: "the live site is not serving the new build yet" | Pages was slow, or a newer push already replaced this build. Re-run the smoke job, or check the latest run. |
+| `golden.test.js` fails | Output changed. Intended: `pnpm golden:update` and review. Not intended: fix the code. |
+| `pnpm install --frozen-lockfile` fails in CI | `package.json` and `pnpm-lock.yaml` disagree. Run `pnpm install` locally and commit the lockfile. |
+
+## License
+
+None yet. Add a `LICENSE` file before accepting outside contributions.
