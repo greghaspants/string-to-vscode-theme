@@ -379,7 +379,9 @@ const ThemeEngine = (function () {
     const neutral = col !== null && col.hue === null;
     const T = neutral ? 0 : 1;               // how much hue tints the surfaces, text and bars: none for a gray
     const tint = c => c * T;
-    const key = col !== null ? col.hex : seed;
+    // Text is hashed in lowercase, so "Food", "FOOD" and "food" are one theme. (toLowerCase, not toLocaleLowerCase:
+    // the result must not depend on the machine's language.) A color is hashed as its canonical hex.
+    const key = col !== null ? col.hex : seed.toLowerCase();
     const h1 = hash32(key), h2 = hash32('\u0001' + key), h3 = hash32('\u0002' + key);
     const rand = rng((h2 ^ h3) >>> 0);
     const hue = col === null ? (h1 / 4294967296) * 360 : neutral ? NEUTRAL_BASE_HUE : col.hue;

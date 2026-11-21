@@ -223,6 +223,31 @@ test.describe('the link comment at the top of the snippet', () => {
   });
 });
 
+test.describe('capitalization', () => {
+  const snippetFor = (E_, seed) => JSON.parse(E_.makeSnippet(E_.buildTheme(seed, 'auto'), { adapt: true, explorer: true, braces: true }));
+  test('does not change the theme, but is kept as typed', async ({ page }) => {
+    await opt(page, 'optBraces').check();
+    await page.locator('#seed').fill('Hello World');
+    const mixed = await snippet(page);
+    await expect(page.locator('#seed')).toHaveValue('Hello World');
+    expect(await hash(page)).toContain('--s-'); // text with capitals travels in the link as typed
+    for (const typed of ['hello world', 'HELLO WORLD', 'hElLo wOrLd', '  Hello World  ']) {
+      await page.locator('#seed').fill(typed);
+      expect(await snippet(page), typed).toBe(mixed);
+    }
+    expect(JSON.parse(mixed)).toEqual(snippetFor(E, 'hello world'));
+    await page.locator('#seed').fill('Hello World!');
+    expect(await snippet(page)).not.toBe(mixed);
+    // and a link made from capitals comes back with the same text and the same colors
+    await page.locator('#seed').fill('My-Project');
+    const h = await hash(page), snip = await snippet(page);
+    await page.goto('about:blank');
+    await page.goto('/' + h);
+    await expect(page.locator('#seed')).toHaveValue('My-Project');
+    expect(await snippet(page)).toBe(snip);
+  });
+});
+
 test.describe('what to color', () => {
   test('the options are labeled for what they color', async ({ page }) => {
     await expect(page.locator('.what label b')).toHaveText([
