@@ -6,8 +6,6 @@ It is one self-contained web page: no framework, no server, no external fonts or
 
 Not affiliated with VS Code. This is just something a random person built for fun, and it is very vibe coded. The asterisk in the page title says the same snippet may also work in other editors built on VS Code, with results that may vary.
 
-Live site: `https://<your-user>.github.io/<your-repo>/` (appears after the first successful deploy, see [Publishing](#publishing-to-github-pages)).
-
 ## What it does
 
 - Turns any text into a palette designed in OKLCH and gamut-mapped to sRGB hex, which is the only color format VS Code themes accept.
