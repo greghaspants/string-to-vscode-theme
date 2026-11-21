@@ -150,6 +150,29 @@ test.describe('name, link and sharing', () => {
   });
 });
 
+test.describe('the title bar search box in the preview', () => {
+  test('is drawn as an outlined box in the bar text color, and fills on hover like the real command center', async ({ page }) => {
+    await page.goto('/#yellow'); // a light bar with dark text: the case where the search box text was once left pale
+    const cc = page.locator('.vsc .title .cc');
+    await expect(cc).toHaveText('hue.ts — string-theme');
+    const t = E.buildTheme('yellow', 'dark');
+    const css = (el, p) => el.evaluate((n, prop) => getComputedStyle(n)[prop], p);
+    const rgb = (hex) => { const n = parseInt(hex.slice(1), 16); return `rgb(${n >> 16}, ${(n >> 8) & 255}, ${n & 255})`; };
+    expect(await css(cc, 'color')).toBe(rgb(t.colors['commandCenter.foreground']));
+    expect(await css(cc, 'borderTopColor')).toBe(rgb(t.colors['commandCenter.border']));
+    expect(await css(cc, 'borderTopWidth')).toBe('1px');
+    await cc.hover();
+    expect(await css(cc, 'backgroundColor')).toBe(rgb(t.colors['commandCenter.activeBackground']));
+    expect(await css(cc, 'borderTopColor')).toBe(rgb(t.colors['commandCenter.activeBorder']));
+  });
+
+  test('its keys are in the snippet whatever the options, since they belong to the title bar', async ({ page }) => {
+    await opt(page, 'optBraces').check();
+    const c = JSON.parse(await snippet(page))['workbench.colorCustomizations'];
+    for (const k of ['commandCenter.foreground', 'commandCenter.border', 'commandCenter.activeBackground']) expect(c[k], k).toMatch(/^#[0-9a-f]{6}$/);
+  });
+});
+
 test.describe('the link comment at the top of the snippet', () => {
   const fullUrl = (page) => page.evaluate(() => location.href).then((u) => u.replace(/#$/, ''));
 

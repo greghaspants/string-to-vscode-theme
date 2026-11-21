@@ -125,6 +125,8 @@ legend { padding: 0; }
 .vsc .title .dots { display: flex; gap: 6px; }
 .vsc .title .dots i { width: 10px; height: 10px; border-radius: 50%; background: var(--sbdim); display: block; }
 .vsc .title span.ttl { flex: 1; text-align: center; }
+.vsc .title .cc { display: inline-block; min-width: 55%; padding: 0 14px; border: 1px solid var(--sbdim); border-radius: 6px; color: var(--sbfg); }
+.vsc .title .cc:hover { background: var(--sbhover); border-color: var(--sbfg); }
 .vsc .body { display: grid; grid-template-columns: 44px 176px minmax(0, 1fr); min-height: 0; }
 .vsc .actbar { background: var(--sb); display: flex; flex-direction: column; align-items: center; padding-top: 6px; gap: 2px; }
 .vsc .actbar div { position: relative; width: 44px; height: 40px; display: grid; place-items: center; color: var(--sbdim); }
@@ -452,7 +454,7 @@ td.num, th.num { text-align: right; white-space: nowrap; font-variant-numeric: t
     var blocks = function (pre) {
       return '<div class="blocks">' + ANSI.map(function (n) { return '<i style="background:var(--ansi-' + pre + n + ')"></i>'; }).join('') + '</div>';
     };
-    return '<div class="title" aria-hidden="true"><span class="dots"><i></i><i></i><i></i></span><span class="ttl">hue.ts — string-theme</span></div>' +
+    return '<div class="title" aria-hidden="true"><span class="dots"><i></i><i></i><i></i></span><span class="ttl"><span class="cc">hue.ts — string-theme</span></span></div>' +
       '<div class="body" aria-hidden="true">' +
         '<div class="actbar">' + act + '</div>' +
         '<div class="side"><h4>EXPLORER</h4><div class="sec">STRING-THEME</div>' +

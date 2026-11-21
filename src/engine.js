@@ -129,6 +129,9 @@ const ThemeEngine = (function () {
   const FRAME_KEYS = [
     'titleBar.activeBackground', 'titleBar.activeForeground', 'titleBar.inactiveBackground',
     'titleBar.inactiveForeground', 'titleBar.border',
+    'commandCenter.foreground', 'commandCenter.activeForeground', 'commandCenter.inactiveForeground',
+    'commandCenter.background', 'commandCenter.activeBackground',
+    'commandCenter.border', 'commandCenter.activeBorder', 'commandCenter.inactiveBorder',
     'activityBar.background', 'activityBar.foreground', 'activityBar.inactiveForeground',
     'activityBar.activeBorder', 'activityBar.border', 'activityBarBadge.background', 'activityBarBadge.foreground',
     'statusBar.background', 'statusBar.foreground', 'statusBar.noFolderBackground',
@@ -520,6 +523,12 @@ const ThemeEngine = (function () {
       'titleBar.activeBackground': sbBg, 'titleBar.activeForeground': barFg,
       'titleBar.inactiveBackground': sbBg, 'titleBar.inactiveForeground': sbDim, 'titleBar.border': sbBg,
 
+      // The search box in the middle of the title bar. VS Code does not draw it from titleBar.activeForeground,
+      // so on a light bar its text could be left pale. It sits flat on the bar, outlined; hovering fills it like a status bar item.
+      'commandCenter.foreground': barFg, 'commandCenter.activeForeground': barFg, 'commandCenter.inactiveForeground': sbDim,
+      'commandCenter.background': sbBg, 'commandCenter.activeBackground': sbHover,
+      'commandCenter.border': sbDim, 'commandCenter.activeBorder': barFg, 'commandCenter.inactiveBorder': sbDim,
+
       'activityBar.background': sbBg, 'activityBar.foreground': barFg, 'activityBar.inactiveForeground': sbDim,
       'activityBar.activeBorder': barFg, 'activityBar.border': sbBg,
       'activityBarBadge.background': barFg, 'activityBarBadge.foreground': sbBg,
@@ -619,6 +628,9 @@ const ThemeEngine = (function () {
     chk(G3, 'Inactive tab', dim, sideBg, 4.5);
     chk(G3, 'Title bar', barFg, sbBg, 4.5);
     chk(G3, 'Inactive window title', sbDim, sbBg, 4.5);
+    chk(G3, 'Command center text, resting and on hover', barFg, [sbBg, sbHover], 4.5);
+    chk(G3, 'Command center text in an inactive window', sbDim, sbBg, 4.5);
+    chk(G3, 'Command center outline', [sbDim, barFg], sbBg, 3, 'Non-text, 3:1');
     chk(G3, 'Activity bar icons and active marker', barFg, sbBg, 4.5);
     chk(G3, 'Inactive activity bar icons', sbDim, sbBg, 3, 'Non-text, 3:1');
     chk(G3, 'Activity bar badge', sbBg, barFg, 4.5);
