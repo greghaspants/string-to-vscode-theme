@@ -901,22 +901,22 @@
   },
   "gray": {
     "dark": {
-      "titleBar": "#d3caff",
-      "editorBg": "#1b1a24",
-      "keyword": "#deceff",
-      "theme": "d590ed24f1ef70e10065"
+      "titleBar": "#585858",
+      "editorBg": "#222222",
+      "keyword": "#ffce88",
+      "theme": "adbcbdf7c565eab0ec75"
     },
     "light": {
-      "titleBar": "#d3caff",
-      "editorBg": "#f5f3ff",
-      "keyword": "#4a2678",
-      "theme": "621dfba20f31da5835c5"
+      "titleBar": "#585858",
+      "editorBg": "#fafafa",
+      "keyword": "#6a4400",
+      "theme": "543e7177298d6b5c2391"
     },
-    "auto": "dark",
+    "auto": "light",
     "snippets": {
-      "default": "9b582b958eeafd49f081",
-      "allAreas": "de346b4d43064970af43",
-      "everythingNoAdapt": "69100a9d2ff137a04ac1"
+      "default": "1c499a814e061db2ad0a",
+      "allAreas": "932db22d4a758cdc2e4e",
+      "everythingNoAdapt": "3513e742bb8645d14b38"
     }
   },
   "sky-500": {

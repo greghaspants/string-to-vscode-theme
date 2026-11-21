@@ -108,12 +108,18 @@ test('functions that are incomplete, unsupported or not plain numbers are not co
   }
 });
 
-test('grays written as functions, hex or oklch have no hue and fall back to the hash', () => {
+const isNeutral = (hex) => hex.slice(1, 3) === hex.slice(3, 5) && hex.slice(3, 5) === hex.slice(5, 7);
+const NEUTRAL_KEYS = ['editor.background', 'sideBar.background', 'activityBar.background', 'foreground', 'descriptionForeground', 'statusBar.background', 'statusBar.foreground',
+  'titleBar.activeBackground', 'titleBar.activeForeground', 'activityBar.foreground', 'button.background', 'button.foreground', 'textLink.foreground', 'focusBorder', 'editor.selectionBackground', 'input.background'];
+
+test('grays written as functions, hex or oklch have no hue, and are still used as the colors they are', () => {
   for (const g of ['rgb(128, 128, 128)', 'hsl(200 0% 50%)', 'hwb(0 50% 50%)', 'oklch(50% 0 0)', 'oklch(100% 0.3 30)', 'oklch(0% 0.3 30)', '#808080', '#808080ff', 'hsl(0 0% 100%)']) {
     const c = E.parseColor(g);
     assert.ok(c, g);
     assert.equal(c.hue, null, g);
-    assert.equal(E.buildTheme(g, 'dark').hue, (E.hash32(g) / 4294967296) * 360, g);
+    const t = E.buildTheme(g, 'dark');
+    assert.deepEqual(t.color, { kind: c.kind, hex: c.hex, neutral: true }, g);
+    assert.notEqual(t.hue, (E.hash32(g) / 4294967296) * 360, `${g} is not hashed as text`);
   }
 });
 
@@ -138,10 +144,10 @@ test('a color name or hex sets the theme hue to that color\'s hue', () => {
     for (const mode of ['dark', 'light']) {
       const t = E.buildTheme(n, mode);
       assert.ok(Math.abs(t.hue - want) < 1e-9, `${n} ${mode}: ${t.hue} vs ${want}`);
-      assert.deepEqual(t.color, { kind: 'name', hex: E.CSS_COLORS[n], used: true });
+      assert.deepEqual(t.color, { kind: 'name', hex: E.CSS_COLORS[n], neutral: false });
     }
   }
-  assert.deepEqual(E.buildTheme('#f63', 'dark').color, { kind: 'hex', hex: '#ff6633', used: true });
+  assert.deepEqual(E.buildTheme('#f63', 'dark').color, { kind: 'hex', hex: '#ff6633', neutral: false });
 });
 
 test('the same color gives the same theme however it is typed', () => {
@@ -162,15 +168,29 @@ test('different colors give different themes', () => {
   assert.notEqual(E.buildTheme('tomato', 'dark').colors['titleBar.activeBackground'], E.buildTheme('teal', 'dark').colors['titleBar.activeBackground']);
 });
 
-test('grays and near-whites fall back to the name\'s hash, exactly as before', () => {
-  for (const n of GRAYS.concat(['#808080', '#000', '#fff'])) {
-    const t = E.buildTheme(n, 'dark');
-    assert.equal(t.hue, (E.hash32(n) / 4294967296) * 360, n);
-    assert.equal(t.color.used, false, n);
-    assert.equal(t.color.hex, E.parseColor(n).hex);
+test('grays, white and black give a neutral theme: no tint anywhere in the surfaces, text or bars, and no hashing of the typed text', () => {
+  for (const n of GRAYS.concat(['#808080', '#000', '#fff', 'rgb(10 20 30)', 'oklch(70% 0.02 200)'])) {
+    for (const mode of ['dark', 'light']) {
+      const t = E.buildTheme(n, mode);
+      assert.deepEqual(t.color, { kind: E.parseColor(n).kind, hex: E.parseColor(n).hex, neutral: true }, n);
+      assert.equal(t.hue, 250, `${n} syntax starts from the neutral base hue`);
+      for (const k of NEUTRAL_KEYS) assert.ok(isNeutral(t.colors[k]), `${n} ${mode} ${k} ${t.colors[k]}`);
+      assert.ok(isNeutral(t.palette.sbBg) && isNeutral(t.palette.sbFg) && isNeutral(t.palette.sbHover), n);
+    }
   }
-  // ...and case still matters for them, like any other string
-  assert.notEqual(E.buildTheme('Gray', 'dark').hue, E.buildTheme('gray', 'dark').hue);
+  // the syntax colors are still colors (a monochrome editor would be unreadable and fail the color-blind separation)
+  const syn = E.buildTheme('gray', 'dark');
+  assert.ok(syn.tok && Object.values(syn.tok).every((h) => !isNeutral(h)), 'syntax stays chromatic');
+});
+
+test('the same gray is the same theme however it is typed, and different grays are different themes', () => {
+  const a = E.buildTheme('gray', 'dark');
+  for (const t of ['Gray', 'GREY', ' grey ', '#808080', '#888', 'rgb(128 128 128)', 'hsl(0 0% 50.2%)']) {
+    if (t === '#888') continue; // #888 is #888888, a different gray
+    assert.ok(sameTheme(a, E.buildTheme(t, 'dark')), t);
+  }
+  const bars = new Set(['black', 'dimgray', 'gray', 'silver', 'gainsboro', 'white'].map((n) => E.buildTheme(n, 'dark').palette.sbBg));
+  assert.ok(bars.size >= 5, 'black, white and the grays between them do not all give the same bar');
 });
 
 test('ordinary names are untouched: no color info, hue straight from the hash', () => {
@@ -185,6 +205,7 @@ test('every named color, every Tailwind shade, and a sweep of hex colors, passes
   const seeds = NAMES.slice();
   for (const [fam, shades] of Object.entries(E.TAILWIND_COLORS)) shades.forEach((_, i) => seeds.push(`${fam}-${E.TAILWIND_SHADES[i]}`));
   for (let h = 0; h < 360; h += 3) for (const [L, C] of [[0.9, 0.2], [0.65, 0.15], [0.3, 0.08], [0.55, 0.035]]) seeds.push(E.oklchToHex(L, C, h));
+  for (let L = 0; L <= 1.0001; L += 0.02) for (const C of [0, 0.01, 0.025]) seeds.push(E.oklchToHex(L, C, 40)); // every gray, and near-grays
   const failures = [];
   for (const seed of seeds) for (const mode of ['dark', 'light']) {
     for (const c of E.buildTheme(seed, mode).checks) if (!c.pass) failures.push(`${seed} | ${mode} | ${c.label}`);
@@ -236,18 +257,15 @@ test('every frame foreground follows the bar: dark text on a bright bar, in ever
   }
 });
 
-test('a typed color gets a bright bar exactly when it is light (L >= 0.6); grays fall back to the hash like any string', () => {
+test('a typed color, gray or not, gets a bright bar exactly when it is light (L >= 0.6)', () => {
   for (const n of Object.keys(E.CSS_COLORS)) {
     const c = E.parseColor(n);
-    if (c.hue === null) continue;
     assert.equal(E.buildTheme(n, 'dark').brightBar, c.lightness >= 0.6, n);
     // below the cutoff, light text on the color itself is still readable
     if (c.lightness < 0.6) assert.ok(E.contrast('#fafafa', c.hex) >= 3.5, `${n} is dark enough for light text`);
   }
-  for (const n of ['gray', 'white', 'ivory', '#f5f5f5', 'rgb(128 128 128)']) {
-    const t = E.buildTheme(n, 'dark');
-    assert.equal(t.color.used, false, n);
-    assert.equal(typeof t.brightBar, 'boolean');
+  for (const [n, bright] of [['white', true], ['silver', true], ['whitesmoke', true], ['gray', false], ['dimgray', false], ['black', false]]) {
+    assert.equal(E.buildTheme(n, 'dark').brightBar, bright, n);
   }
 });
 
