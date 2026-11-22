@@ -193,7 +193,7 @@ legend { padding: 0; }
 .stack { display: flex; flex-direction: column; gap: 16px; }
 [hidden] { display: none !important; }
 .snip { margin: 0; max-height: 440px; overflow: auto; background: var(--side); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; font-size: 12.5px; line-height: 1.6; color: var(--fg); tab-size: 2; }
-.snip .j-key { color: var(--tk-property); } .snip .j-str { color: var(--tk-string); } .snip .j-punct { color: var(--punct); } .snip .j-com { color: var(--dim); }
+.snip .j-key { color: var(--tk-property); } .snip .j-str { color: var(--tk-string); } .snip .j-punct { color: var(--punct); }
 .copyrow { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .copied { font-size: .9rem; color: var(--fg); min-height: 1.4em; }
 .steps { margin: 0; padding-left: 1.2em; color: var(--dim); font-size: .9rem; display: flex; flex-direction: column; gap: 4px; }
@@ -336,6 +336,7 @@ td.num, th.num { text-align: right; white-space: nowrap; font-variant-numeric: t
         <pre class="snip" id="snippet" tabindex="0" aria-label="settings.json snippet"></pre>
         <div class="copyrow">
           <button class="btn" id="copy" type="button">Copy snippet</button>
+          <button class="btn ghost" id="copyLink" type="button">Copy link to this page</button>
           <span class="copied" id="copied" role="status" aria-live="polite"></span>
         </div>
         <ol class="steps">
@@ -503,18 +504,14 @@ td.num, th.num { text-align: right; white-space: nowrap; font-variant-numeric: t
     }).join('');
   }
   function highlightJson(text) {
-    return text.split('\n').map(function (line) {
-      if (/^\s*\/\//.test(line)) return '<span class="j-com">' + esc(line) + '</span>';   // the link comment
-      return esc(line).replace(/("(?:[^"\\]|\\.)*")(\s*:)?|[{}\[\],]/g, function (m, str, colon) {
-        if (str) return colon ? '<span class="j-key">' + str + '</span>' + colon : '<span class="j-str">' + str + '</span>';
-        return '<span class="j-punct">' + m + '</span>';
-      });
-    }).join('\n');
+    return esc(text).replace(/("(?:[^"\\]|\\.)*")(\s*:)?|[{}\[\],]/g, function (m, str, colon) {
+      if (str) return colon ? '<span class="j-key">' + str + '</span>' + colon : '<span class="j-str">' + str + '</span>';
+      return '<span class="j-punct">' + m + '</span>';
+    });
   }
-  /* The link the snippet's comment points to: this page and every option in its URL hash. Only for a page that is really
-     served over http(s); a file or an embedded preview has no address worth linking to. */
+  /* The address of this page with every option in its URL hash: what "Copy link to this page" copies. It is built from the
+     current state rather than read back from the address bar, so it is right even if the bar has not caught up. */
   function pageUrl() {
-    if (!/^https?:$/.test(location.protocol)) return '';
     var h = U.encode(state);
     return location.href.split('#')[0] + (h ? '#' + h : '');
   }
@@ -537,7 +534,7 @@ td.num, th.num { text-align: right; white-space: nowrap; font-variant-numeric: t
     var pm = document.querySelector('input[name="pmode"][value="' + (t.dark ? 'dark' : 'light') + '"]'); if (pm) pm.checked = true;
     var mr = document.querySelector('input[name="mode"][value="' + state.mode + '"]'); if (mr) mr.checked = true; // both controls edit the same setting
     $('everSub').textContent = state.adapt ? 'Also buttons, inputs, command palette, links and scrollbars' : 'Also buttons, inputs, command palette, links and scrollbars, and sets the base theme';
-    snippetText = E.makeSnippet(t, { explorer: state.explorer, editor: state.editor, panel: state.panel, everything: state.every, baseTheme: state.base, semantic: state.sem, braces: state.braces, adapt: state.adapt, url: pageUrl() });
+    snippetText = E.makeSnippet(t, { explorer: state.explorer, editor: state.editor, panel: state.panel, everything: state.every, baseTheme: state.base, semantic: state.sem, braces: state.braces, adapt: state.adapt });
     $('snippet').innerHTML = highlightJson(snippetText);
   }
   function ratio(n) { return n.toFixed(2) + ' : 1'; }
@@ -637,16 +634,19 @@ td.num, th.num { text-align: right; white-space: nowrap; font-variant-numeric: t
     $('optAdapt').checked = state.adapt;
   }
   function setSeed(s) { state.seed = s; $('seed').value = s; update(); }
-  function copy() {
-    var ok = false, msg = $('copied');
-    function done() {
-      msg.textContent = ok ? 'Copied. Paste it into settings.json.' : 'Copy was blocked. Select the snippet text and copy it manually.';
-      setTimeout(function () { msg.textContent = ''; }, 3500);
-    }
+  var copyTimer = 0;
+  function say(text) {
+    $('copied').textContent = text;
+    clearTimeout(copyTimer);
+    copyTimer = setTimeout(function () { $('copied').textContent = ''; }, 3500);
+  }
+  function copyText(text, okMsg, failMsg) {
+    var ok = false;
+    function done() { say(ok ? okMsg : failMsg); }
     function fallback() {
       try {
         var ta = document.createElement('textarea');
-        ta.value = snippetText; ta.setAttribute('readonly', '');
+        ta.value = text; ta.setAttribute('readonly', '');
         ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
         document.body.appendChild(ta); ta.select();
         ok = document.execCommand('copy'); ta.remove();
@@ -654,8 +654,14 @@ td.num, th.num { text-align: right; white-space: nowrap; font-variant-numeric: t
       done();
     }
     try {
-      navigator.clipboard.writeText(snippetText).then(function () { ok = true; done(); }, fallback);
+      navigator.clipboard.writeText(text).then(function () { ok = true; done(); }, fallback);
     } catch (e) { fallback(); }
+  }
+  function copy() { copyText(snippetText, 'Copied. Paste it into settings.json.', 'Copy was blocked. Select the snippet text and copy it manually.'); }
+  function copyLink() {
+    // a page opened from a blob, data or about: address has nothing worth linking to
+    if (!/^(https?|file):$/.test(location.protocol)) { say('This page has no address of its own to link to.'); return; }
+    copyText(pageUrl(), 'Link copied. Opening it brings back this name and these options.', 'Copy was blocked. Copy the address from your browser instead.');
   }
   /* ---------- the "?" popups ("Why?", "What can I type?", and the note under the name field):
      hover or click opens one; leaving it, clicking elsewhere or Esc closes it ---------- */
@@ -725,6 +731,7 @@ td.num, th.num { text-align: right; white-space: nowrap; font-variant-numeric: t
     $('optSem').addEventListener('change', function (e) { state.sem = e.target.checked; renderSnippet(current); writeHash(); });
     $('optBraces').addEventListener('change', function (e) { state.braces = e.target.checked; renderSnippet(current); writeHash(); });
     $('copy').addEventListener('click', copy);
+    $('copyLink').addEventListener('click', copyLink);
     // Someone edited the link, used Back/Forward, or opened a different link in this page.
     window.addEventListener('hashchange', function () {
       var next = U.parse(location.hash);
