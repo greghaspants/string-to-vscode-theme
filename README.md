@@ -70,7 +70,7 @@ Tokens: `dark` `light` (theme brightness or preview mode), `protan` `deutan` `tr
 
 ## How the colors are made
 
-1. **Hash.** The trimmed name goes through FNV-1a with a murmur3 finalizer to a 32-bit number. Two more hashes of the name (prefixed with control characters) drive the small lightness and chroma variations and seed a small PRNG (mulberry32).
+1. **Hash.** The trimmed name, lowercased (so `Food` and `food` are the same theme), goes through FNV-1a with a murmur3 finalizer to a 32-bit number. Two more hashes of the name (prefixed with control characters) drive the small lightness and chroma variations and seed a small PRNG (mulberry32).
 2. **Hue and brightness.** The first hash gives the hue (0 to 359). Auto mode picks dark or light from the second hash (about 62% dark). If the text is a color (name, hex, Tailwind color or color function), it is never hashed as text: its OKLCH hue is used instead (a gray, white or black has none and gives a neutral theme, see below), and the three hashes are taken over the canonical sRGB hex, so `Tomato`, `tomato`, `#FF6347` and `rgb(255 99 71)` are one theme. The hue comes from the color. If the color is light (OKLCH lightness of at least 0.6, which is where white text on it would fall under 4.5:1), the frame bars use its lightness (capped at 0.93) and its chroma with dark text, and hover and pressed states go a step darker; otherwise they are dark with light text. Strings that are not colors (and grays) take the bright branch for about 35% of names, chosen by a separate hash so no other color moves. Either way the contrast fitting below still holds for every pair, and the frame is still identical in dark and light builds.
 3. **Design in OKLCH.** Surfaces, text and accents are placed by lightness and chroma, then gamut-mapped by lowering chroma at fixed lightness and hue until the color fits sRGB.
 4. **Fit to contrast.** Each text color starts at a target lightness and moves toward the text direction in small steps until it meets its target on every surface it can appear on, measured on the final hex values.
@@ -239,7 +239,3 @@ Adding an option touches several places; `CLAUDE.md` has the checklist.
 | Smoke job: "the live site is not serving the new build yet" | Pages was slow, or a newer push already replaced this build. Re-run the smoke job, or check the latest run. |
 | `golden.test.js` fails | Output changed. Intended: `pnpm golden:update` and review. Not intended: fix the code. |
 | `pnpm install --frozen-lockfile` fails in CI | `package.json` and `pnpm-lock.yaml` disagree. Run `pnpm install` locally and commit the lockfile. |
-
-## License
-
-None yet. Add a `LICENSE` file before accepting outside contributions.

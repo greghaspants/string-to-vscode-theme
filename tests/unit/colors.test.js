@@ -197,7 +197,7 @@ test('ordinary names are untouched: no color info, hue straight from the hash', 
   for (const n of ['food', 'tidepool', 'my-project', 'Hello World', '', '🚀']) {
     const t = E.buildTheme(n, 'dark');
     assert.equal(t.color, null);
-    assert.equal(t.hue, (E.hash32(n) / 4294967296) * 360);
+    assert.equal(t.hue, (E.hash32(n.toLowerCase()) / 4294967296) * 360);
   }
 });
 
