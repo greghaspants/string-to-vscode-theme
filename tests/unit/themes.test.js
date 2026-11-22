@@ -171,3 +171,22 @@ test('the title bar search box (command center) follows the bar: text, outline a
     for (const label of ['Command center text, resting and on hover', 'Command center text in an inactive window', 'Command center outline']) assert.ok(t.checks.find((x) => x.label === label && x.pass), `${s} ${label}`);
   }
 });
+
+test('hashing ignores case: the same text in any capitalization is the same theme', () => {
+  const same = (a, b) => {
+    for (const mode of ['dark', 'light', 'auto']) {
+      const x = E.buildTheme(a, mode), y = E.buildTheme(b, mode);
+      assert.deepEqual(Object.assign({}, x, { seed: '' }), Object.assign({}, y, { seed: '' }), `${a} vs ${b} (${mode})`);
+      assert.equal(E.makeSnippet(x, { adapt: true, editor: true, braces: true }), E.makeSnippet(y, { adapt: true, editor: true, braces: true }));
+    }
+  };
+  same('food', 'Food'); same('food', 'FOOD'); same('Hello World', 'hello world'); same('My-Project', 'my-project');
+  same('ñandú', 'ÑANDÚ'); same('Ünïcode Näme', 'ünïcode näme');
+  for (const w of words(60)) same(w, w.toUpperCase()), same(w, w[0].toUpperCase() + w.slice(1));
+  // the text is still shown as typed
+  assert.equal(E.buildTheme('Hello World', 'dark').seed, 'Hello World');
+  // different text is still different
+  assert.notEqual(E.buildTheme('food', 'dark').colors['titleBar.activeBackground'], E.buildTheme('foods', 'dark').colors['titleBar.activeBackground']);
+  // and surrounding spaces still do not matter
+  same('  Food ', 'food');
+});

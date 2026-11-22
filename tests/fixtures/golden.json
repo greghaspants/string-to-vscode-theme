@@ -61,22 +61,22 @@
   },
   "Hello World": {
     "dark": {
-      "titleBar": "#6e5400",
-      "editorBg": "#2a2008",
-      "keyword": "#f49aeb",
-      "theme": "86ed9759ff9b9acfa208"
+      "titleBar": "#acccff",
+      "editorBg": "#111b2c",
+      "keyword": "#ff959f",
+      "theme": "644cb0c163d410ddfba2"
     },
     "light": {
-      "titleBar": "#6e5400",
-      "editorBg": "#fff9ec",
-      "keyword": "#4d1100",
-      "theme": "c127d7dd566f2ab3d882"
+      "titleBar": "#acccff",
+      "editorBg": "#eff5ff",
+      "keyword": "#6c1c30",
+      "theme": "6b5cf99f71d89fee6c0c"
     },
     "auto": "dark",
     "snippets": {
-      "default": "c4f7634987f00ef07a64",
-      "allAreas": "81579e7cc383474d024b",
-      "everythingNoAdapt": "3197dd4484521d8a6cd5"
+      "default": "0afdc00c5c77f0952e23",
+      "allAreas": "1ba9272b841fabb189fe",
+      "everythingNoAdapt": "b83b2b029972591198f3"
     }
   },
   "ñandú": {
